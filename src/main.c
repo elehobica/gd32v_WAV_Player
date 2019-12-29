@@ -7,6 +7,8 @@
 unsigned char image[12800];
 FATFS fs;
 
+int32_t audio_buf[4096];
+
 int main(void)
 {
     uint8_t mount_is_ok = 1; /* 0: mount successful ; 1: mount failed */
@@ -21,15 +23,50 @@ int main(void)
     gpio_init(GPIOA, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_1|GPIO_PIN_2);
 
     init_uart0();
-    init_i2s2();
 
+    for (int i = 0; i < 4096/2; i++) {
+        audio_buf[i*2] = i;
+        audio_buf[i*2+1] = i;
+    }
+
+    //spi_i2s_interrupt_enable(SPI2, SPI_I2S_INT_TBE);
+    init_i2s2();
+    init_dma_i2s2(&audio_buf[0], 4096*2);
+
+    spi_dma_enable(SPI2, SPI_DMA_TRANSMIT);
+    dma_channel_enable(DMA1, DMA_CH1);
+
+    while (1) {
+        if (SET == dma_flag_get(DMA1, DMA_CH1, DMA_FLAG_FTF)) {
+            dma_flag_clear(DMA1, DMA_CH1, DMA_FLAG_FTF);
+            //dma_channel_disable(DMA1, DMA_CH1);
+            init_dma_i2s2(&audio_buf[0], 4096*2);
+            dma_channel_enable(DMA1, DMA_CH1);            
+        }
+        /*
+        if (SET == spi_i2s_flag_get(SPI2, I2S_FLAG_TBE)) {
+        //if (SET == spi_i2s_interrupt_flag_get(SPI2, SPI_I2S_INT_FLAG_TBE)) {
+            printf(".");
+            dma_channel_disable(DMA1, DMA_CH1);
+            init_dma_i2s2(&audio_buf[0], 4096*2);
+            dma_channel_enable(DMA1, DMA_CH1);
+        }
+        
+        while (SET == spi_i2s_flag_get(SPI2, I2S_FLAG_TBE)) {
+            ;
+        }
+        */
+        
+    }
     dump_reg_all();
 
     while (1) {
+        /*
         spi_i2s_data_transmit(SPI2, 0xaaaa);
         spi_i2s_data_transmit(SPI2, 0xaaaa);
         spi_i2s_data_transmit(SPI2, 0x5555);
         spi_i2s_data_transmit(SPI2, 0x5555);
+        */
         /*
         PA_OUT(15, 1);
         PB_OUT(3, 1);

@@ -57,12 +57,17 @@ void dump_reg_all(void)
     printf("[GPIOB]");
     printf("\n");
     dump_reg(GPIO_BASE+0x400, 0x20);
+    /*
     printf("[SPI1]");
     printf("\n");
-    dump_reg(SPI1, 0x30);  
+    dump_reg(SPI1, 0x30);
+    */
     printf("[SPI2]");
     printf("\n");
-    dump_reg(SPI2, 0x30);  
+    dump_reg(SPI2, 0x30);
+    printf("[DMA1]");
+    printf("\n");
+    dump_reg(DMA1, 0x200);
 }
 
 int _put_char(int ch)
