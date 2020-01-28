@@ -4,15 +4,20 @@
 #include "uart_util.h"
 #include "audio_buf.h"
 
+unsigned char image[12800];
+
+//#define SIZE_OF_SAMPLES 512  // samples for 2ch
+
 int main(void)
 {
-#if 0
-    uint8_t mount_is_ok = 1; /* 0: mount successful ; 1: mount failed */
+    //uint8_t mount_is_ok = 1; /* 0: mount successful ; 1: mount failed */
+
+    int count = 0;
+    FATFS fs;
     int offset = 0;
     FIL fil;
     FRESULT fr;     /* FatFs return code */
     UINT br;
-#endif
 
     rcu_periph_clock_enable(RCU_GPIOA);
     rcu_periph_clock_enable(RCU_GPIOC);
@@ -20,40 +25,6 @@ int main(void)
     gpio_init(GPIOA, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_1|GPIO_PIN_2);
 
     init_uart0();
-
-    prepare_audio_buf();
-
-    LEDR(1);
-    LEDG(1);
-    LEDB(1);
-
-    while (1) {
-        run_audio_buf();
-    }
-    dump_reg_all();
-
-#if 0
-    while (1) {
-        /*
-        spi_i2s_data_transmit(SPI2, 0xaaaa);
-        spi_i2s_data_transmit(SPI2, 0xaaaa);
-        spi_i2s_data_transmit(SPI2, 0x5555);
-        spi_i2s_data_transmit(SPI2, 0x5555);
-        */
-        /*
-        PA_OUT(15, 1);
-        PB_OUT(3, 1);
-        PB_OUT(5, 1);
-        */
-        LEDB_TOG;
-        delay_1ms(1);
-        /*
-        PA_OUT(15, 0);
-        PB_OUT(3, 0);
-        PB_OUT(5, 0);
-        delay_1ms(1);
-        */
-    }
 
     Lcd_Init();			// init OLED
     LCD_Clear(WHITE);
@@ -63,68 +34,44 @@ int main(void)
     LEDG(1);
     LEDB(1);
 
-
-
+    // Mount FAT
     fr = f_mount(&fs, "", 1);
-    if (fr == 0)
-        mount_is_ok = 0;
-    else
-        mount_is_ok = 1;
-
-    if (mount_is_ok == 0)
-    {
-
-        while(1)
-        {
-            offset = 0;
-            fr = f_open(&fil, "logo.bin", FA_READ);
-            if (fr) printf("open error: %d!\n\r", (int)fr);
-            f_lseek(&fil, offset);
-            fr = f_read(&fil, image, sizeof(image), &br);
-            LCD_ShowPicture(0,0,159,39);
-            offset += 12800;
-            LEDB_TOG;
-            f_lseek(&fil, offset);
-            fr = f_read(&fil, image, sizeof(image), &br);
-            LCD_ShowPicture(0,40,159,79);
-            LEDB_TOG;
-            delay_1ms(1500);
-            f_close(&fil);
-
-            fr = f_open(&fil, "bmp.bin", FA_READ);
-            if (fr) printf("open error: %d!\n\r", (int)fr);
-            offset = 0;
-
-            for (int i=0; i<2189;i++)
-            {
-                fr = f_read(&fil, image, sizeof(image), &br);
-                LCD_ShowPicture(0,0,159,39);
-                offset += 12800;
-                f_lseek(&fil, offset);
-                LEDB_TOG;
-                //delay_1ms(500);
-                fr = f_read(&fil, image, sizeof(image), &br);
-                LCD_ShowPicture(0,40,159,79);
-                offset += 12800;
-                f_lseek(&fil, offset);
-                LEDB_TOG;
-                //delay_1ms(500);
-                //printf("loop = %d\n", i);
-            }
-
-            /* Close the file */
-            f_close(&fil);
-        }
+    while (fr == 1) { 
+        delay_1ms(10);
+        fr = f_mount(&fs, "", 1);
+        if (count++ > 10) break;
     }
-    else
-    {
+
+    if (fr == 0) {
+        // Opening Logo
+        offset = 0;
+        fr = f_open(&fil, "logo.bin", FA_READ);
+        if (fr) printf("open error: %d!\n\r", (int)fr);
+        f_lseek(&fil, offset);
+        fr = f_read(&fil, image, sizeof(image), &br);
+        LCD_ShowPicture(0,0,159,39);
+        offset += 12800;
+        LEDB_TOG;
+        f_lseek(&fil, offset);
+        fr = f_read(&fil, image, sizeof(image), &br);
+        LCD_ShowPicture(0,40,159,79);
+        LEDB_TOG;
+        //delay_1ms(1500);
+        f_close(&fil);
+
+        // Start Audio
+        prepare_audio_buf();
+        while (1) {
+            run_audio_buf();
+            LEDB_TOG;
+        }
+    } else {
         LCD_ShowString(24,  0, (u8 *)("no card found!"), BLACK);
         LCD_ShowString(24, 16, (u8 *)("no card found!"), BLUE);
         LCD_ShowString(24, 32, (u8 *)("no card found!"), BRED);
         LCD_ShowString(24, 48, (u8 *)("no card found!"), GBLUE);
         LCD_ShowString(24, 64, (u8 *)("no card found!"), RED);
-        while (1)
-        {
+        while (1) {
             LEDR_TOG;
             delay_1ms(200);
             LEDG_TOG;
@@ -133,6 +80,5 @@ int main(void)
             delay_1ms(200);
         }
     }
-#endif
 }
 
