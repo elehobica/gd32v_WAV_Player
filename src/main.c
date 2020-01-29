@@ -39,7 +39,7 @@ int main(void)
     while (fr == 1) { 
         delay_1ms(10);
         fr = f_mount(&fs, "", 1);
-        if (count++ > 10) break;
+        if (count++ > 100) break;
     }
 
     if (fr == 0) {
@@ -60,10 +60,11 @@ int main(void)
         f_close(&fil);
 
         // Start Audio
-        prepare_audio_buf();
         while (1) {
-            run_audio_buf();
-            LEDB_TOG;
+            prepare_audio_buf();
+            while (run_audio_buf()) {
+                LEDB_TOG;
+            }
         }
     } else {
         LCD_ShowString(24,  0, (u8 *)("no card found!"), BLACK);
