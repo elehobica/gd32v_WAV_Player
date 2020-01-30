@@ -20,8 +20,8 @@ union U {
 
 FIL fil;
 int offset;
-int data_size;
-int next_dma_size;
+int wav_data_size;
+int dma_trans_number;
 int buf_flg = 0;
 
 uint32_t swap16b(uint32_t in_val)
@@ -30,7 +30,7 @@ uint32_t swap16b(uint32_t in_val)
     return ((uint32_t) u.s[0] << 16) | ((uint32_t) u.s[1]);
 }
 
-int volume = 2000; // 256 ~ 65536
+int volume = 4000; // 256 ~ 65536
 
 /*
 static double ang = 0;
@@ -80,81 +80,92 @@ static void setup_triangle_sine_waves(int32_t *samples_data)
 }
 */
 
-int get_audio_buf(FIL *tec, int32_t *samples_data, int32_t *dma_size)
+int get_audio_buf(FIL *tec, int32_t *samples_data, int32_t *trans_number)
+// trans_number: DMA transfer count of 16bit->32bit transfer (NOT Byte count)
+// but it equals Byte count of 16bit RAW data (actually equals (Byte count of 16bit RAW data)*2/2)
+// because 16bit RAW data is expanded into 32bit data for 24bit DAC
 {
     int16_t audio_buf[SIZE_OF_SAMPLES];
     FRESULT fr;     /* FatFs return code */
     UINT br;
     unsigned int i;
     f_lseek(&fil, offset);
-    if (offset + sizeof(audio_buf) > 44 + data_size) {
-        *dma_size = 44 + data_size - offset;
+    if (offset + sizeof(audio_buf) > 44 + wav_data_size) {
+        *trans_number = 44 + wav_data_size - offset; // *2/2
     } else {
-        *dma_size = sizeof(audio_buf);
+        *trans_number = sizeof(audio_buf); // *2/2
     }
-    fr = f_read(&fil, audio_buf, *dma_size, &br);
+    fr = f_read(&fil, audio_buf, *trans_number, &br);
     if (fr == 0) {
         //printf("OK %d\n\r", offset);
-        for (i = 0; i < *dma_size/4; i++) {
+        for (i = 0; i < *trans_number/4; i++) {
             samples_data[i*2+0] = swap16b((int) audio_buf[i*2+0]* volume);
             samples_data[i*2+1] = swap16b((int) audio_buf[i*2+1]* volume);
         }
     } else {
-        printf("NG %d %d\n\4", offset, *dma_size);
+        printf("NG %d %d\n\4", offset, *trans_number);
     }
     offset += sizeof(audio_buf);
-    return (offset >= 44 + data_size);
+    return (offset >= 44 + wav_data_size);
 }
 
-void prepare_audio_buf(void)
+void prepare_audio_buf(char *filename)
 {
     FRESULT fr;     /* FatFs return code */
     UINT br;
     int flg = 0;
 
-    //fr = f_open(&fil, "bmp.bin", FA_READ);
-    fr = f_open(&fil, "alone.wav", FA_READ);
+    fr = f_open(&fil, filename, FA_READ);
     if (fr) printf("open error: %d!\n\r", (int)fr);
     offset = 40;
     f_lseek(&fil, offset);
-    fr = f_read(&fil, &data_size, sizeof(data_size), &br);
-    printf("data size: %d\n\r", data_size);
+    fr = f_read(&fil, &wav_data_size, sizeof(wav_data_size), &br);
+    printf("data size: %d\n\r", wav_data_size);
     offset = 44;
 
-    buf_flg = get_audio_buf(&fil, audio_buf0, &next_dma_size);
-
+    for (int i = 0; i < SIZE_OF_SAMPLES; i++) {
+        audio_buf0[i] = 0;
+        audio_buf1[i] = 0;
+    }
+    dma_trans_number = SIZE_OF_SAMPLES*2;
+    buf_flg = 0;
+    
+    //buf_flg = get_audio_buf(&fil, audio_buf0, &dma_trans_number);
 
     init_i2s2();
-    init_dma_i2s2(audio_buf0, next_dma_size);
-
     spi_dma_enable(SPI2, SPI_DMA_TRANSMIT);
+    init_dma_i2s2(audio_buf0, dma_trans_number);
     dma_channel_enable(DMA1, DMA_CH1);
 
-    buf_flg = get_audio_buf(&fil, audio_buf1, &next_dma_size);
+    //buf_flg = get_audio_buf(&fil, audio_buf1, &dma_trans_number);
     count = 0;
 }
 
 int run_audio_buf(void)
 {
     if (SET == dma_flag_get(DMA1, DMA_CH1, DMA_FLAG_FTF)) {
+        LEDB(0);
         dma_flag_clear(DMA1, DMA_CH1, DMA_FLAG_FTF);
         dma_channel_disable(DMA1, DMA_CH1);
         if (count % 2 == 0) {
-            init_dma_i2s2(audio_buf1, next_dma_size);
+            init_dma_i2s2(audio_buf1, dma_trans_number);
         } else {
-            init_dma_i2s2(audio_buf0, next_dma_size);
+            init_dma_i2s2(audio_buf0, dma_trans_number);
         }
         dma_channel_enable(DMA1, DMA_CH1);
         if (buf_flg) {
             f_close(&fil);
             return 0;
         }
-        if (count % 2 == 0) {
-            buf_flg = get_audio_buf(&fil, audio_buf0, &next_dma_size);
-        } else {
-            buf_flg = get_audio_buf(&fil, audio_buf1, &next_dma_size);
+        if (count > 50) {
+            if (count % 2 == 0) {
+                buf_flg = get_audio_buf(&fil, audio_buf0, &dma_trans_number);
+            } else {
+                buf_flg = get_audio_buf(&fil, audio_buf1, &dma_trans_number);
+            }
         }
         count++;
+        LEDB(1);
     }
     return 1;
 }

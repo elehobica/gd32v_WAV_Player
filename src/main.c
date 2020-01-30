@@ -5,6 +5,7 @@
 #include "audio_buf.h"
 
 unsigned char image[12800];
+extern int volume;
 
 //#define SIZE_OF_SAMPLES 512  // samples for 2ch
 
@@ -26,10 +27,12 @@ int main(void)
 
     init_uart0();
 
-    Lcd_Init();			// init OLED
+    // init OLED
+    Lcd_Init();
     LCD_Clear(WHITE);
     BACK_COLOR=WHITE;
 
+    // LED All Off
     LEDR(1);
     LEDG(1);
     LEDB(1);
@@ -42,31 +45,7 @@ int main(void)
         if (count++ > 100) break;
     }
 
-    if (fr == 0) {
-        // Opening Logo
-        offset = 0;
-        fr = f_open(&fil, "logo.bin", FA_READ);
-        if (fr) printf("open error: %d!\n\r", (int)fr);
-        f_lseek(&fil, offset);
-        fr = f_read(&fil, image, sizeof(image), &br);
-        LCD_ShowPicture(0,0,159,39);
-        offset += 12800;
-        LEDB_TOG;
-        f_lseek(&fil, offset);
-        fr = f_read(&fil, image, sizeof(image), &br);
-        LCD_ShowPicture(0,40,159,79);
-        LEDB_TOG;
-        //delay_1ms(1500);
-        f_close(&fil);
-
-        // Start Audio
-        while (1) {
-            prepare_audio_buf();
-            while (run_audio_buf()) {
-                LEDB_TOG;
-            }
-        }
-    } else {
+    if (fr) { // Mount Fail (Loop)
         LCD_ShowString(24,  0, (u8 *)("no card found!"), BLACK);
         LCD_ShowString(24, 16, (u8 *)("no card found!"), BLUE);
         LCD_ShowString(24, 32, (u8 *)("no card found!"), BRED);
@@ -79,6 +58,36 @@ int main(void)
             delay_1ms(200);
             LEDB_TOG;
             delay_1ms(200);
+        }
+    }
+
+    // Opening Logo
+    offset = 0;
+    fr = f_open(&fil, "logo.bin", FA_READ);
+    if (fr) printf("open error: %d!\n\r", (int)fr);
+    f_lseek(&fil, offset);
+    fr = f_read(&fil, image, sizeof(image), &br);
+    LCD_ShowPicture(0,0,159,39);
+    offset += 12800;
+    LEDB_TOG;
+    f_lseek(&fil, offset);
+    fr = f_read(&fil, image, sizeof(image), &br);
+    LCD_ShowPicture(0,40,159,79);
+    LEDB_TOG;
+    //delay_1ms(1500);
+    f_close(&fil);
+
+    // Start Audio
+    count = 0;
+    while (1) {
+        prepare_audio_buf("play1.wav");
+        while (run_audio_buf()) {
+        }
+        prepare_audio_buf("play2.wav");
+        while (run_audio_buf()) {
+        }
+        prepare_audio_buf("play3.wav");
+        while (run_audio_buf()) {
         }
     }
 }
