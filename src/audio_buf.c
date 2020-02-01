@@ -30,7 +30,8 @@ uint32_t swap16b(uint32_t in_val)
     return ((uint32_t) u.s[0] << 16) | ((uint32_t) u.s[1]);
 }
 
-int volume = 4000; // 256 ~ 65536
+int volume = 65; // 0 ~ 100;
+static const uint32_t vol_table[] = {0, 4, 8, 12, 16, 20, 24, 27, 29, 31, 34, 37, 40, 44, 48, 52, 57, 61, 67, 73, 79, 86, 94, 102, 111, 120, 131, 142, 155, 168, 183, 199, 217, 236, 256, 279, 303, 330, 359, 390, 424, 462, 502, 546, 594, 646, 703, 764, 831, 904, 983, 1069, 1163, 1265, 1376, 1496, 1627, 1770, 1925, 2094, 2277, 2476, 2693, 2929, 3186, 3465, 3769, 4099, 4458, 4849, 5274, 5736, 6239, 6785, 7380, 8026, 8730, 9495, 10327, 11232, 12216, 13286, 14450, 15716, 17093, 18591, 20220, 21992, 23919, 26015, 28294, 30773, 33470, 36403, 39592, 43061, 46835, 50938, 55402, 60256, 65536};
 
 /*
 static double ang = 0;
@@ -99,8 +100,8 @@ int get_audio_buf(FIL *tec, int32_t *samples_data, int32_t *trans_number)
     if (fr == 0) {
         //printf("OK %d\n\r", offset);
         for (i = 0; i < *trans_number/4; i++) {
-            samples_data[i*2+0] = swap16b((int) audio_buf[i*2+0]* volume);
-            samples_data[i*2+1] = swap16b((int) audio_buf[i*2+1]* volume);
+            samples_data[i*2+0] = swap16b((int) audio_buf[i*2+0]* vol_table[volume]);
+            samples_data[i*2+1] = swap16b((int) audio_buf[i*2+1]* vol_table[volume]);
         }
     } else {
         printf("NG %d %d\n\4", offset, *trans_number);

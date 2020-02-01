@@ -3,16 +3,16 @@
 #include <string.h>
 #include "uart_util.h"
 #include "audio_buf.h"
+#include "adc_util.h"
 
 unsigned char image[12800];
 extern int volume;
+int count10ms = 0;
 
 //#define SIZE_OF_SAMPLES 512  // samples for 2ch
 
 int main(void)
 {
-    //uint8_t mount_is_ok = 1; /* 0: mount successful ; 1: mount failed */
-
     int count = 0;
     FATFS fs;
     int offset = 0;
@@ -26,6 +26,8 @@ int main(void)
     gpio_init(GPIOA, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_1|GPIO_PIN_2);
 
     init_uart0();
+    adc_init();
+    timer_irq_init();
 
     // init OLED
     Lcd_Init();
@@ -38,7 +40,7 @@ int main(void)
     LEDB(1);
 
     // Mount FAT
-    fr = f_mount(&fs, "", 1);
+    fr = f_mount(&fs, "", 1); // 0: mount successful ; 1: mount failed
     while (fr == 1) { 
         delay_1ms(10);
         fr = f_mount(&fs, "", 1);
@@ -91,4 +93,66 @@ int main(void)
         }
     }
 }
+
+void timer_irq_init(void) {
+    rcu_periph_clock_enable(RCU_TIMER0);
+    timer_parameter_struct tpa;
+    timer_struct_para_init(&tpa);
+    tpa.prescaler = 1080 - 1;       // prescaler (108MHz -> 100KHz)
+    tpa.period = 100 - 1;           // max value of counting up (100KHz -> 1000Hz = 1ms)
+    tpa.repetitioncounter = 10 - 1; // the num of overflows that issues update IRQ. (1ms*10 = 10ms)
+    timer_init(TIMER0, &tpa);
+    timer_interrupt_enable(TIMER0, TIMER_INT_UP);
+    timer_enable(TIMER0);
+
+    eclic_global_interrupt_enable();
+    eclic_enable_interrupt(TIMER0_UP_IRQn);
+}
+
+void tick_10ms(void)
+{
+}
+
+uint32_t button_prv = HP_BUTTON_OPEN;
+uint32_t button_repeat_count = 0;
+
+void tick_100ms(void)
+{
+    uint32_t button = adc_get_hp_button();
+    if (button == HP_BUTTON_OPEN) {
+        button_repeat_count = 0;
+    } else if (button != button_prv || button_repeat_count > 20) {
+        if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
+            if (volume < 100) volume++;
+        } else if (button == HP_BUTTON_MINUS) {
+            if (volume > 0) volume--;
+        }
+    } else {
+        button_repeat_count++;
+    }
+    button_prv = button;
+}
+
+void tick_1sec(void)
+{
+    //printf("ADC = %d\n\r", adc0_rdata);
+    //get_adc(0);
+    LEDR_TOG;
+}
+
+void TIMER0_UP_IRQHandler(void)
+{
+    tick_10ms();
+    if (count10ms % 10 == 0) {
+        tick_100ms();
+    }
+    if (count10ms++ >= 100) {
+        count10ms = 0;
+        tick_1sec();
+    }
+    timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_UP);
+}
+
+
+
 
