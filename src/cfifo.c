@@ -54,20 +54,20 @@ int cfifo_is_full(cfifo_t *inst)
 }
 
 // Write Single Data
-int cfifo_write(cfifo_t *inst, char *ptr)
+int cfifo_write(cfifo_t *inst, cfifo_data_t ptr)
 {
     unsigned int next = (inst->write + 1) % inst->size;
     if (next == inst->read) return 0;
-    memcpy(inst->buf + inst->write, ptr, sizeof(cfifo_data_t));
+    strncpy((char *) (inst->buf + inst->write), (const char *) ptr, sizeof(cfifo_data_t));
     inst->write = next;
     return 1;
 }
 
 // Read Data
-int cfifo_read(cfifo_t *inst, char *ptr)
+int cfifo_read(cfifo_t *inst, cfifo_data_t ptr)
 {
     if (cfifo_is_empty(inst)) return 0;
-    memcpy(ptr, inst->buf + inst->read, sizeof(cfifo_data_t));
+    strncpy((char *) ptr, (const char *) (inst->buf + inst->read), sizeof(cfifo_data_t));
     inst->read = (inst->read + 1) % inst->size;
     return 1;
 }

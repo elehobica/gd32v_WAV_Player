@@ -21,7 +21,7 @@ union U {
 FIL fil;
 int offset;
 int wav_data_size;
-int dma_trans_number;
+int32_t dma_trans_number;
 int buf_flg = 0;
 
 uint32_t swap16b(uint32_t in_val)
@@ -104,7 +104,7 @@ int get_audio_buf(FIL *tec, int32_t *samples_data, int32_t *trans_number)
             samples_data[i*2+1] = swap16b((int) audio_buf[i*2+1]* vol_table[volume]);
         }
     } else {
-        printf("NG %d %d\n\4", offset, *trans_number);
+        printf("NG %d %d\n\4", offset, (int) *trans_number);
     }
     offset += sizeof(audio_buf);
     return (offset >= 44 + wav_data_size);
@@ -114,7 +114,6 @@ void prepare_audio_buf(char *filename)
 {
     FRESULT fr;     /* FatFs return code */
     UINT br;
-    int flg = 0;
 
     fr = f_open(&fil, filename, FA_READ);
     if (fr) printf("open error: %d!\n\r", (int)fr);

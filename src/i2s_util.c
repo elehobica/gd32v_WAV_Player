@@ -17,15 +17,15 @@ void init_i2s1(void)
     //spi_i2s_interrupt_enable(SPI1, SPI_I2S_INT_TBE);
 }
 
-void init_dma_i2s2(uint32_t memory_addr, uint32_t trans_number)
+void init_dma_i2s2(int32_t *memory_addr, uint32_t trans_number)
 {
     rcu_periph_clock_enable(RCU_DMA1);
 
     dma_struct_para_init(&dma_i2s2);
-    dma_i2s2.periph_addr = &SPI_DATA(SPI2);
+    dma_i2s2.periph_addr = (uint32_t) &SPI_DATA(SPI2);
     dma_i2s2.periph_width = DMA_PERIPHERAL_WIDTH_32BIT;
     dma_i2s2.periph_inc = DMA_PERIPH_INCREASE_DISABLE;
-    dma_i2s2.memory_addr = memory_addr;
+    dma_i2s2.memory_addr = (uint32_t) memory_addr;
     dma_i2s2.memory_width = DMA_MEMORY_WIDTH_16BIT;
     dma_i2s2.memory_inc = DMA_MEMORY_INCREASE_ENABLE;
     dma_i2s2.direction = DMA_MEMORY_TO_PERIPHERAL;

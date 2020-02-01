@@ -29,10 +29,10 @@ void adc_init(void)
     rcu_periph_clock_enable(RCU_DMA0);
 
     dma_struct_para_init(&dma_adc0);
-    dma_adc0.periph_addr = &ADC_RDATA(ADC0);
+    dma_adc0.periph_addr = (uint32_t) &ADC_RDATA(ADC0);
     dma_adc0.periph_width = DMA_PERIPHERAL_WIDTH_16BIT;
     dma_adc0.periph_inc = DMA_PERIPH_INCREASE_DISABLE;
-    dma_adc0.memory_addr = &adc0_rdata;
+    dma_adc0.memory_addr = (uint32_t) &adc0_rdata;
     dma_adc0.memory_width = DMA_MEMORY_WIDTH_16BIT;
     dma_adc0.memory_inc = DMA_MEMORY_INCREASE_DISABLE;
     dma_adc0.direction = DMA_PERIPHERAL_TO_MEMORY;

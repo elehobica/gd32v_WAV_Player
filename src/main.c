@@ -53,8 +53,6 @@ void tick_100ms(void)
 
 void tick_1sec(void)
 {
-    //printf("ADC = %d\n\r", adc0_rdata);
-    //get_adc(0);
     LEDR_TOG;
 }
 
@@ -139,29 +137,7 @@ int main(void)
     //delay_1ms(1500);
     f_close(&fil);
 
-#if 0
-    fifo_t *fifo = fifo_create(2);
-    fifo_write(fifo, 5);
-    fifo_write(fifo, 3);
-    fifo_write(fifo, 1);
-    fifo_data_t bbb;
-    while (!fifo_is_empty(fifo)) {
-        fifo_read(fifo, &bbb);
-        printf("fifo_data = %d\n\r",bbb);
-    }
-#endif
-
     cfifo_t *cfifo = cfifo_create(5);
-    /*
-    cfifo_write(cfifo, "abcdef");
-    cfifo_write(cfifo, "12345");
-    cfifo_data_t ccc;
-    while (!cfifo_is_empty(cfifo)) {
-        cfifo_read(cfifo, &ccc);
-        printf("cfifo_data = %s\n\r",ccc);
-    }
-    */
-
     // Start Audio
     count = 0;
     while (1) {
@@ -171,26 +147,12 @@ int main(void)
         while (!cfifo_is_empty(cfifo)) {
             cfifo_data_t wav_filename;
             cfifo_read(cfifo, wav_filename);
-            printf("Play \"%s\"\n\r", wav_filename);
+            printf("Play \"%s\"\n\r", (char *) wav_filename);
             prepare_audio_buf(wav_filename);
             while (run_audio_buf()) {
             }
         }
     }
-        
-#if 0
-        prepare_audio_buf("play1.wav");
-        while (run_audio_buf()) {
-            //printf("abc\n\r");
-        }
-        prepare_audio_buf("play2.wav");
-        while (run_audio_buf()) {
-        }
-        prepare_audio_buf("play3.wav");
-        while (run_audio_buf()) {
-        }
-    }
-#endif
 }
 
 

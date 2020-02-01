@@ -6,6 +6,6 @@
 
 void init_i2s1(void);
 void init_i2s2(void);
-void init_dma_i2s2(uint32_t memory_addr, uint32_t trans_number);
+void init_dma_i2s2(int32_t *memory_addr, uint32_t trans_number);
 
 #endif
