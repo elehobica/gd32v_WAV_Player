@@ -1,10 +1,10 @@
 #ifndef _CFIFO_H_
 #define _CFIFO_H_
 
-// FIFO data type
+// CFIFO data type
 typedef char cfifo_data_t[256];
 
-// FIFO instance struct
+// CFIFO instance struct
 typedef struct {
     cfifo_data_t *buf;
     unsigned int size;

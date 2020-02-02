@@ -2,7 +2,7 @@
 #include <string.h>
 #include "cfifo.h"
 
-// Create FIFO
+// Create CFIFO
 cfifo_t *cfifo_create(unsigned int size)
 {
     cfifo_t *inst;
@@ -25,7 +25,7 @@ void cfifo_delete(cfifo_t *inst)
     free(inst);
 }
 
-// Get current FIFO count
+// Get current CFIFO count
 unsigned int cfifo_get_count(cfifo_t *inst)
 {
     unsigned int val;
@@ -41,13 +41,13 @@ unsigned int cfifo_get_rest_count(cfifo_t *inst)
     return val;
 }
 
-// Get FIFO is empty
+// Get CFIFO is empty
 int cfifo_is_empty(cfifo_t *inst)
 {
     return (cfifo_get_count(inst) == 0);
 }
 
-// Get FIFO is full
+// Get CFIFO is full
 int cfifo_is_full(cfifo_t *inst)
 {
     return (cfifo_get_rest_count(inst) == 0);

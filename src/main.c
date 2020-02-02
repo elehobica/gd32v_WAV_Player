@@ -4,11 +4,8 @@
 #include "uart_util.h"
 #include "audio_buf.h"
 #include "adc_util.h"
-#include "fifo.h"
-#include "cfifo.h"
 
 unsigned char image[12800];
-extern int volume;
 int count10ms = 0;
 
 void timer_irq_init(void)
@@ -29,6 +26,7 @@ void timer_irq_init(void)
 
 void tick_10ms(void)
 {
+    LEDG(1);
 }
 
 uint32_t button_prv = HP_BUTTON_OPEN;
@@ -39,13 +37,21 @@ void tick_100ms(void)
     uint32_t button = adc_get_hp_button();
     if (button == HP_BUTTON_OPEN) {
         button_repeat_count = 0;
-    } else if (button != button_prv || button_repeat_count > 20) {
-        if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
-            if (volume < 100) volume++;
+    } else if (button != button_prv) {
+        if (button == HP_BUTTON_CENTER) {
+            audio_pause();
+        } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
+            volume_up();
         } else if (button == HP_BUTTON_MINUS) {
-            if (volume > 0) volume--;
+            volume_down();
         }
-    } else {
+    } else if (button_repeat_count > 20) {
+        if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
+            volume_up();
+        } else if (button == HP_BUTTON_MINUS) {
+            volume_down();
+        }
+    } else if (button == button_prv) {
         button_repeat_count++;
     }
     button_prv = button;
@@ -53,7 +59,8 @@ void tick_100ms(void)
 
 void tick_1sec(void)
 {
-    LEDR_TOG;
+    //LEDG_TOG;
+    LEDG(0);
 }
 
 void TIMER0_UP_IRQHandler(void)
@@ -77,6 +84,7 @@ int main(void)
     FIL fil;
     FRESULT fr;     /* FatFs return code */
     UINT br;
+    char lcd_str[256];
 
     rcu_periph_clock_enable(RCU_GPIOA);
     rcu_periph_clock_enable(RCU_GPIOC);
@@ -118,6 +126,7 @@ int main(void)
             delay_1ms(200);
             LEDB_TOG;
             delay_1ms(200);
+            eclic_system_reset();
         }
     }
 
@@ -134,24 +143,27 @@ int main(void)
     fr = f_read(&fil, image, sizeof(image), &br);
     LCD_ShowPicture(0,40,159,79);
     LEDB_TOG;
-    //delay_1ms(1500);
+    delay_1ms(500);
     f_close(&fil);
 
-    cfifo_t *cfifo = cfifo_create(5);
-    // Start Audio
-    count = 0;
+    // Audio play
+    LCD_Clear(BLACK);
+    BACK_COLOR=BLACK;
+    audio_init();
     while (1) {
-        cfifo_write(cfifo, "play1.wav");
-        cfifo_write(cfifo, "play2.wav");
-        cfifo_write(cfifo, "play3.wav");
-        while (!cfifo_is_empty(cfifo)) {
-            cfifo_data_t wav_filename;
-            cfifo_read(cfifo, wav_filename);
-            printf("Play \"%s\"\n\r", (char *) wav_filename);
-            prepare_audio_buf(wav_filename);
-            while (run_audio_buf()) {
-            }
+        if (!audio_is_playing()) {
+            audio_add_playlist_wav("play1.wav");
+            audio_add_playlist_wav("play2.wav");
+            audio_add_playlist_wav("play3.wav");
+            audio_play();
         }
+        const audio_info_type *audio_info = audio_get_info();
+        sprintf(lcd_str, "VOL %3d", volume_get());
+        LCD_ShowString(8*0,  16*0, (u8 *) audio_info->filename, GBLUE);
+        LCD_ShowString(8*12, 16*4, (u8 *) lcd_str, WHITE);
+
+        //printf("%s %d/%d\n\r", audio_info.filename, audio_info.offset, audio_info.size);
+        delay_1ms(100);
     }
 }
 
