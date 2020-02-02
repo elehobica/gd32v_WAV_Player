@@ -84,12 +84,24 @@ int main(void)
     FIL fil;
     FRESULT fr;     /* FatFs return code */
     UINT br;
+    char file_str[256];
     char lcd_str[256];
+    int file_num = 13;
 
+    // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
     rcu_periph_clock_enable(RCU_GPIOC);
     gpio_init(GPIOC, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_13);
     gpio_init(GPIOA, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_1|GPIO_PIN_2);
+
+    // LED All Off
+    LEDR(1);
+    LEDG(1);
+    LEDB(1);
+
+    // Debug Output (PA3 for Proving) by PA_OUT(3, s)
+    rcu_periph_clock_enable(RCU_GPIOA);
+    gpio_init(GPIOA, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_3);
 
     init_uart0();
     adc_init();
@@ -99,11 +111,6 @@ int main(void)
     Lcd_Init();
     LCD_Clear(WHITE);
     BACK_COLOR=WHITE;
-
-    // LED All Off
-    LEDR(1);
-    LEDG(1);
-    LEDB(1);
 
     // Mount FAT
     fr = f_mount(&fs, "", 1); // 0: mount successful ; 1: mount failed
@@ -150,12 +157,14 @@ int main(void)
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
     audio_init();
+    sprintf(file_str, "%02d.wav", file_num++);
+    audio_add_playlist_wav(file_str);
+    sprintf(file_str, "%02d.wav", file_num++);
+    audio_play();
     while (1) {
-        if (!audio_is_playing()) {
-            audio_add_playlist_wav("play1.wav");
-            audio_add_playlist_wav("play2.wav");
-            audio_add_playlist_wav("play3.wav");
-            audio_play();
+        if (audio_add_playlist_wav(file_str)) {
+            sprintf(file_str, "%02d.wav", file_num++);
+            if (file_num >= 73) file_num = 13;
         }
         const audio_info_type *audio_info = audio_get_info();
         sprintf(lcd_str, "VOL %3d", volume_get());
