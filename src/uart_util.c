@@ -1,4 +1,5 @@
 #include "uart_util.h"
+#include <stdio.h>
 
 void init_uart0(void)
 {	

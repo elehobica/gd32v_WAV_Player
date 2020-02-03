@@ -1,7 +1,7 @@
 #ifndef _AUDIO_BUF_H_
 #define _AUDIO_BUF_H_
 
-#include "cfifo.h"
+#include "fifo/cfifo.h"
 
 typedef struct {
     cfifo_data_t filename;

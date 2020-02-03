@@ -1,5 +1,6 @@
 #include "lcd/lcd.h"
 #include "fatfs/tf_card.h"
+#include "fatfs/ff_util.h"
 #include <string.h>
 #include "uart_util.h"
 #include "audio_buf.h"
@@ -84,9 +85,7 @@ int main(void)
     FIL fil;
     FRESULT fr;     /* FatFs return code */
     UINT br;
-    char file_str[256];
     char lcd_str[256];
-    int file_num = 13;
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -153,7 +152,25 @@ int main(void)
     delay_1ms(500);
     f_close(&fil);
 
+    // Search Directories / Files
+    printf("Longan Player ver 1.00\n\r");
+    scan_files("", 0);
+    /*
+    DIR dir;
+    FILINFO fno;
+
+    fr = f_opendir(&dp, ".");
+    while (1) {
+        fr = f_readdir(&dp, &fno);
+        if (fno.fname[0] == '\0') break;
+        printf("%s %s\n\r", fno.altname, fno.fname);
+    }
+    */
+
     // Audio play
+    char file_str[256];
+    int file_num = 1;
+
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
     audio_init();
@@ -164,7 +181,7 @@ int main(void)
     while (1) {
         if (audio_add_playlist_wav(file_str)) {
             sprintf(file_str, "%02d.wav", file_num++);
-            if (file_num >= 73) file_num = 13;
+            if (file_num >= 9) file_num = 1;
         }
         const audio_info_type *audio_info = audio_get_info();
         sprintf(lcd_str, "VOL %3d", volume_get());
@@ -175,6 +192,8 @@ int main(void)
         delay_1ms(100);
     }
 }
+
+
 
 
 

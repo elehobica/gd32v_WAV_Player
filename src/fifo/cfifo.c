@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-#include "cfifo.h"
+#include "./fifo/cfifo.h"
 
 // Create CFIFO
 cfifo_t *cfifo_create(unsigned int size)
