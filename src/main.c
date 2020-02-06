@@ -8,7 +8,6 @@
 
 unsigned char image[12800];
 int count10ms = 0;
-char entry_list[128][13];
 
 void timer_irq_init(void)
 {
@@ -159,23 +158,23 @@ int main(void)
 
     DIR dir;
     fr = f_opendir(&dir, "");
-    FILINFO pt_file_info_ob;
-    int32_t max_entry_cnt = make_sfn_list(&dir, entry_list, TGT_FILES, &pt_file_info_ob);
-    sort_entry_list(&dir, &pt_file_info_ob, entry_list, max_entry_cnt);
+    FILINFO fno;
+    uint16_t max_entry_cnt = idx_get_max(&dir, TGT_FILES, &fno);
+    uint16_t *entry_list = (uint16_t *) malloc(sizeof(uint16_t) * max_entry_cnt);
+    idx_sort_entry_list_by_lfn(&dir, TGT_FILES, &fno, entry_list, max_entry_cnt);
     for (int i = 0; i < max_entry_cnt; i++) {
-        fr = my_f_stat(&dir, entry_list[i], &pt_file_info_ob);
-        printf("%s\n\r", pt_file_info_ob.fname);
+        fr = idx_f_stat(&dir, TGT_FILES, entry_list[i], &fno);
+        printf("%s\n\r", fno.fname);
     }
+    free (entry_list);
 
     /*
-    DIR dir;
-    FILINFO fno;
-
-    fr = f_opendir(&dp, ".");
-    while (1) {
-        fr = f_readdir(&dp, &fno);
-        if (fno.fname[0] == '\0') break;
-        printf("%s %s\n\r", fno.altname, fno.fname);
+    char entry_list[128][13];
+    int32_t max_entry_cnt = sfn_make_list(&dir, entry_list, TGT_FILES, &fno);
+    sfn_sort_entry_list_by_lfn(&dir, &fno, entry_list, max_entry_cnt);
+    for (int i = 0; i < max_entry_cnt; i++) {
+        fr = sfn_f_stat(&dir, entry_list[i], &fno);
+        printf("%s\n\r", fno.fname);
     }
     */
 

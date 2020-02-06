@@ -8,8 +8,12 @@
 
 FRESULT scan_files (char* path_in, int recursive);
 
-void sort_entry_list(DIR *pt_dir_ob, FILINFO *fno, char entry_list[][13], int32_t max_entry_cnt);
-int32_t make_sfn_list(DIR *pt_dir_ob, char entry_list[][13], int target, FILINFO *fno);
-FRESULT my_f_stat(DIR *pt_dir_ob, char *sfn, FILINFO *fno);
+void idx_sort_entry_list_by_lfn(DIR *pt_dir_ob, int target, FILINFO *fno, uint16_t entry_list[], uint16_t max_entry_cnt);
+uint16_t idx_get_max(DIR *pt_dir_ob, int target, FILINFO *fno);
+FRESULT idx_f_stat(DIR *pt_dir_ob, int target, uint16_t idx, FILINFO *fno);
+
+void sfn_sort_entry_list_by_lfn(DIR *pt_dir_ob, FILINFO *fno, char entry_list[][13], int32_t max_entry_cnt);
+int32_t sfn_make_list(DIR *pt_dir_ob, char entry_list[][13], int target, FILINFO *fno);
+FRESULT sfn_f_stat(DIR *pt_dir_ob, char *sfn, FILINFO *fno);
 
 #endif
