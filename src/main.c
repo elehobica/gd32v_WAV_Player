@@ -8,6 +8,7 @@
 
 unsigned char image[12800];
 int count10ms = 0;
+char entry_list[128][13];
 
 void timer_irq_init(void)
 {
@@ -154,7 +155,18 @@ int main(void)
 
     // Search Directories / Files
     printf("Longan Player ver 1.00\n\r");
-    scan_files("", 0);
+    //scan_files("", 0);
+
+    DIR dir;
+    fr = f_opendir(&dir, "");
+    FILINFO pt_file_info_ob;
+    int32_t max_entry_cnt = make_sfn_list(&dir, entry_list, TGT_FILES, &pt_file_info_ob);
+    sort_entry_list(&dir, &pt_file_info_ob, entry_list, max_entry_cnt);
+    for (int i = 0; i < max_entry_cnt; i++) {
+        fr = my_f_stat(&dir, entry_list[i], &pt_file_info_ob);
+        printf("%s\n\r", pt_file_info_ob.fname);
+    }
+
     /*
     DIR dir;
     FILINFO fno;
