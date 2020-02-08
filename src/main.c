@@ -159,14 +159,17 @@ int main(void)
     DIR dir;
     fr = f_opendir(&dir, "");
     FILINFO fno;
-    uint16_t max_entry_cnt = idx_get_max(&dir, TGT_FILES, &fno);
+    FILINFO fno_temp; 
+    int target = TGT_FILES;
+    uint16_t max_entry_cnt = idx_get_max(&dir, target, &fno);
     uint16_t *entry_list = (uint16_t *) malloc(sizeof(uint16_t) * max_entry_cnt);
-    idx_sort_entry_list_by_lfn(&dir, TGT_FILES, &fno, entry_list, max_entry_cnt);
+    //idx_sort_entry_list_by_lfn(&dir, target, &fno0, entry_list, max_entry_cnt);
+    idx_qsort_entry_list_by_lfn(&dir, target, &fno, &fno_temp, entry_list, max_entry_cnt);
     for (int i = 0; i < max_entry_cnt; i++) {
-        fr = idx_f_stat(&dir, TGT_FILES, entry_list[i], &fno);
+        fr = idx_f_stat(&dir, target, entry_list[i], &fno);
         printf("%s\n\r", fno.fname);
     }
-    free (entry_list);
+    free(entry_list);
 
     /*
     char entry_list[128][13];

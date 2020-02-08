@@ -95,6 +95,104 @@ uint16_t idx_get_max(DIR *pt_dir_ob, int target, FILINFO *fno)
 	return cnt;
 }
 
+static void idx_qsort_entry_list_by_lfn_with_key(DIR *pt_dir_ob, int target, FILINFO *fno, FILINFO *fno_temp, uint16_t entry_list[], uint16_t max_entry_cnt, uint16_t min_idx, uint16_t max_idx)
+{
+	int k;
+	int result;
+	int top = 0;
+	int bottom = max_entry_cnt - 1;
+	char sort_key[256] = {"0"};
+	uint16_t top_max_idx = min_idx;
+	uint16_t bottom_min_idx = max_idx;
+	for (k = 0; k < max_entry_cnt; k++) {
+		idx_f_stat(pt_dir_ob, target, entry_list[k], fno);
+		//printf("before[%d] %d %s\n\r", k, entry_list[k], fno->fname);
+	}
+	idx_f_stat(pt_dir_ob, target, min_idx, fno);
+	idx_f_stat(pt_dir_ob, target, max_idx, fno_temp);
+	//printf("\n\rmin, max = %s, %s\n\r", fno->fname, fno_temp->fname);
+	// search sort key
+	if (max_entry_cnt <= 2) {
+		for (k = 0; fno->fname[k] != '\0'; k++) {
+			sort_key[k] = fno->fname[k];
+		}
+	} else {
+		for (k = 0; fno->fname[k] != '\0'; k++) {
+			if (fno->fname[k] != fno_temp->fname[k]) break;
+			sort_key[k] = fno->fname[k];
+		}
+		//printf("sort_key k %d, %c %c\n\r", k, fno->fname[k], fno_temp->fname[k]);
+		sort_key[k] = fno->fname[k] + (fno_temp->fname[k] - fno->fname[k])/2 + 1;
+		k++;
+	}
+	sort_key[k] = '\0';
+	//printf("sort_key = %s\n\r", sort_key);
+	// sort by key
+	while (1) {
+		idx_f_stat(pt_dir_ob, target, entry_list[top], fno);
+		result = my_strcmp(fno->fname, sort_key);
+		if (result <= 0) {
+			idx_f_stat(pt_dir_ob, target, top_max_idx, fno_temp);
+			result = my_strcmp(fno->fname, fno_temp->fname);
+			if (result > 0) {
+				top_max_idx = entry_list[top];
+			}
+			top++;
+		} else {
+			idx_entry_swap(entry_list, top, bottom);
+			idx_f_stat(pt_dir_ob, target, bottom_min_idx, fno_temp);
+			result = my_strcmp(fno->fname, fno_temp->fname);
+			if (result < 0) {
+				bottom_min_idx = entry_list[bottom];
+			}
+			bottom--;
+		}
+		if (top > bottom) break;
+	}
+	for (k = 0; k < top; k++) {
+		idx_f_stat(pt_dir_ob, target, entry_list[k], fno);
+		//printf("top[%d] %d %s\n\r", k, entry_list[k], fno->fname);
+	}
+	for (k = top; k < max_entry_cnt; k++) {
+		idx_f_stat(pt_dir_ob, target, entry_list[k], fno);
+		//printf("bottom[%d] %d %s\n\r", k, entry_list[k], fno->fname);
+	}
+	//printf("min_idx = %d, top_max_idx = %d, bottom_min_idx = %d, max_idx = %d\n\r", min_idx, top_max_idx, bottom_min_idx, max_idx);
+	if (top > 1) {
+		idx_qsort_entry_list_by_lfn_with_key(pt_dir_ob, target, fno, fno_temp, &entry_list[0], top, min_idx, top_max_idx);
+	}
+	if (max_entry_cnt - top > 1) {
+		idx_qsort_entry_list_by_lfn_with_key(pt_dir_ob, target, fno, fno_temp, &entry_list[top], max_entry_cnt - top, bottom_min_idx, max_idx);
+	}
+}
+
+void idx_qsort_entry_list_by_lfn(DIR *pt_dir_ob, int target, FILINFO *fno, FILINFO *fno_temp, uint16_t entry_list[], uint16_t max_entry_cnt)
+{
+	int i = 0;
+	int j, k;
+	int result;
+	uint16_t min_idx = 0;
+	uint16_t max_idx = 0;
+	// prepare default entry list
+	for (i = 0; i < max_entry_cnt; i++) entry_list[i] = i;
+	// search sort key
+	idx_f_stat(pt_dir_ob, target, 0, fno);
+	for (i = 1; i < max_entry_cnt; i++) {
+		idx_f_stat(pt_dir_ob, target, i, fno);
+		idx_f_stat(pt_dir_ob, target, min_idx, fno_temp);
+		result = my_strcmp(fno->fname, fno_temp->fname);
+		if (result < 0) {
+			min_idx = i;
+		}
+		idx_f_stat(pt_dir_ob, target, max_idx, fno_temp);
+		result = my_strcmp(fno->fname, fno_temp->fname);
+		if (result > 0) {
+			max_idx = i;
+		}
+	}
+	idx_qsort_entry_list_by_lfn_with_key(pt_dir_ob, target, fno, fno_temp, entry_list, max_entry_cnt, min_idx, max_idx);
+}
+
 void idx_sort_entry_list_by_lfn(DIR *pt_dir_ob, int target, FILINFO *fno, uint16_t entry_list[], uint16_t max_entry_cnt)
 {
 	int i, j;
