@@ -5,11 +5,16 @@
 
 #define TGT_DIRS    (1<<0)
 #define TGT_FILES   (1<<1)
-#define FFL_SZ 6
+#define FFL_SZ 4
 
 FRESULT scan_files (char* path_in, int recursive);
 
-void idx_qsort_entry_list_by_lfn(DIR *pt_dir_ob, int target, uint16_t entry_list[], uint16_t max_entry_cnt);
+uint32_t get_sorted(uint32_t *sorted_flg, uint16_t ofs);
+int get_range_full_sorted(uint32_t *sorted_flg, uint16_t start, uint16_t end_1);
+int get_range_full_unsorted(uint32_t *sorted_flg, uint16_t start, uint16_t end_1);
+
+void idx_qsort_entry_list_by_lfn_with_key(DIR *pt_dir_ob, int target, FILINFO *fno, FILINFO *fno_temp, uint16_t entry_list[], uint32_t *sorted_flg, char fast_fname_list[][FFL_SZ], uint16_t r_start, uint16_t r_end_1, uint16_t start, uint16_t end_1);
+void idx_qsort_range_entry_list_by_lfn(DIR *pt_dir_ob, int target, uint16_t entry_list[], uint32_t *sorted_flg, uint16_t r_start, uint16_t r_end_1, uint16_t max_entry_cnt);
 void idx_sort_entry_list_by_lfn(DIR *pt_dir_ob, int target, FILINFO *fno, uint16_t entry_list[], uint16_t max_entry_cnt);
 uint16_t idx_get_max(DIR *pt_dir_ob, int target, FILINFO *fno);
 FRESULT idx_f_stat(DIR *pt_dir_ob, int target, uint16_t idx, FILINFO *fno);
