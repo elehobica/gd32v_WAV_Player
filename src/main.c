@@ -11,24 +11,68 @@ int count10ms = 0;
 
 int idx_req = 1;
 int idx_head = 0;
-int sort_hold_count = 0;
-uint16_t max_entry_cnt;
+int idx_column = 0;
+int idx_hold_count = 0;
 
 void idx_head_up(void)
 {
     if (idx_req != 1) {
+        if (idx_head >= file_menu_get_max() - 5 && idx_column == 4) return;
         idx_req = 1;
-        idx_head += 5;
-        if (idx_head > max_entry_cnt - 1) idx_head = max_entry_cnt - 1;
+        idx_column++;
+        if (idx_column >= 5) {
+            if (idx_head + 5 >= file_menu_get_max() - 5) {
+                idx_column = 4;
+                idx_head++;
+            } else {
+                idx_column = 0;
+                idx_head += 5;
+            }
+        }
     }
 }
 
 void idx_head_down(void)
 {
     if (idx_req != 1) {
+        if (idx_head == 0 && idx_column == 0) return;
         idx_req = 1;
-        idx_head -= 5;
-        if (idx_head < 0) idx_head = 0;
+        idx_column--;
+        if (idx_column < 0) {
+            if (idx_head - 5 < 0) {
+                idx_column = 0;
+                idx_head--;
+            } else {
+                idx_column = 4;
+                idx_head -= 5;
+            }
+        }
+    } 
+}
+
+void idx_head_fast_up(void)
+{
+    if (idx_req != 1) {
+        if (idx_head >= file_menu_get_max() - 5 && idx_column == 4) return;
+        idx_req = 1;
+        if (idx_head + 5 >= file_menu_get_max() - 5) {
+            idx_head = file_menu_get_max() - 5;
+        } else {
+            idx_head += 5;
+        }
+    }
+}
+
+void idx_head_fast_down(void)
+{
+    if (idx_req != 1) {
+        if (idx_head == 0 && idx_column == 0) return;
+        idx_req = 1;
+        if (idx_head - 5 < 0) {
+            idx_head = 0;
+        } else {
+            idx_head -= 5;
+        }
     } 
 }
 
@@ -74,10 +118,10 @@ void tick_100ms(void)
     } else if (button_repeat_count > 20) {
         if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             volume_up();
-            idx_head_up();
+            idx_head_fast_up();
         } else if (button == HP_BUTTON_MINUS) {
             volume_down();
-            idx_head_down();
+            idx_head_fast_down();
         }
     } else if (button == button_prv) {
         button_repeat_count++;
@@ -182,94 +226,34 @@ int main(void)
     // Clear Logo
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
+    printf("Longan Player ver 1.00\n\r");
 
     // Search Directories / Files
-    printf("Longan Player ver 1.00\n\r");
-    //scan_files("", 0);
-
-    DIR dir;
-    fr = f_opendir(&dir, "");
-    FILINFO fno, fno_temp;
-    int target = TGT_DIRS;
-    uint16_t auto_sort_max = 1;
-    max_entry_cnt = idx_get_max(&dir, target, &fno);
-    uint16_t *entry_list = (uint16_t *) malloc(sizeof(uint16_t) * max_entry_cnt);
-    for (int i = 0; i < max_entry_cnt; i++) entry_list[i] = i;
-    uint32_t *sorted_flg = (uint32_t *) malloc(sizeof(uint32_t) * (max_entry_cnt+31)/32);
-    memset(sorted_flg, 0, sizeof(uint32_t) * (max_entry_cnt+31)/32);
-	char (*fast_fname_list)[FFL_SZ] = (char (*)[FFL_SZ]) malloc(sizeof(char[FFL_SZ]) * max_entry_cnt);
-	for (int i = 0; i < max_entry_cnt; i++) {
-		idx_f_stat(&dir, target, i, &fno);
-		for (int k = 0; k < FFL_SZ; k++) {
-			fast_fname_list[i][k] = fno.fname[k];
-		}
-		//printf("fast_fname_list[%d] = %s\n\r", i, fast_fname_list[i]);
-	}
-
+    file_menu_open_dir("");
     while (1) {
         if (idx_req) {
-            //idx_qsort_range_entry_list_by_lfn(&dir, target, entry_list, sorted_flg, idx_head, idx_head+5, max_entry_cnt);
-            if (!get_range_full_sorted(sorted_flg, idx_head, idx_head+5)) {
-                idx_qsort_entry_list_by_lfn_with_key(&dir, target, &fno, &fno_temp, entry_list, sorted_flg, fast_fname_list, idx_head, idx_head+20, 0, max_entry_cnt);
-            }
             for (int i = 0; i < 5; i++) {
                 memset(lcd_str, 0, 20);
                 strncpy(lcd_str, "                 ", 18);
-                LCD_ShowString(8*2, 16*i, (u8 *) lcd_str, GBLUE);
-                if (i+idx_head < max_entry_cnt) {
-                    fr = idx_f_stat(&dir, target, entry_list[i+idx_head], &fno);
-                    strncpy(lcd_str, fno.fname, 17);
+                LCD_ShowString(8*2, 16*i, (u8 *) lcd_str, BLACK);
+                file_menu_get_fname(idx_head+i, lcd_str, 17);
+                if (i == idx_column) {
                     LCD_ShowString(8*2, 16*i, (u8 *) lcd_str, GBLUE);
+                } else {
+                    LCD_ShowString(8*2, 16*i, (u8 *) lcd_str, WHITE);
                 }
             }
-            
-            /*
-            for (int i = 0; i < (max_entry_cnt+31)/32; i++) {
-                printf("%08x\n\r", *(sorted_flg+i));
-            }
-            */
-            
-            /*
-            char str[FFL_SZ+1];
-            str[FFL_SZ] = '\0';
-            for (int i = 0; i < max_entry_cnt; i++) {
-                strncpy(str, fast_fname_list[i], FFL_SZ);
-                printf("fast_fname_list[%d] = %s\n\r", i, str);
-            }
-            */
-            //printf("\n\r");
-            
             idx_req = 0;
-            sort_hold_count = 0;
+            idx_hold_count = 0;
         } else {
-            sort_hold_count++;
-            if (sort_hold_count > 20 && !get_range_full_unsorted(sorted_flg, 0, max_entry_cnt)) {
-                int start_next = 0;
-                while (get_sorted(sorted_flg, start_next)) {
-                    start_next++;
-                }
-                int end_1_next = start_next+1;
-                while (!get_sorted(sorted_flg, end_1_next) && end_1_next < max_entry_cnt && start_next + 5 > end_1_next) {
-                    end_1_next++;
-                }
-                idx_qsort_entry_list_by_lfn_with_key(&dir, target, &fno, &fno_temp, entry_list, sorted_flg, fast_fname_list, start_next, end_1_next, 0, max_entry_cnt);
+            idx_hold_count++;
+            if (idx_hold_count > 100) {
+                file_menu_idle();
             }
         }
         delay_1ms(100);
     }
-    free(sorted_flg);
-    free(entry_list);
-    free(fast_fname_list);
-
-    /*
-    char entry_list[128][13];
-    int32_t max_entry_cnt = sfn_make_list(&dir, entry_list, TGT_FILES, &fno);
-    sfn_sort_entry_list_by_lfn(&dir, &fno, entry_list, max_entry_cnt);
-    for (int i = 0; i < max_entry_cnt; i++) {
-        fr = sfn_f_stat(&dir, entry_list[i], &fno);
-        printf("%s\n\r", fno.fname);
-    }
-    */
+    file_menu_close_dir();
 
     // Audio play
     char file_str[256];
