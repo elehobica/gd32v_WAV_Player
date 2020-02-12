@@ -5,14 +5,21 @@
 #include "uart_util.h"
 #include "audio_buf.h"
 #include "adc_util.h"
+#include "fifo/stack.h"
 
 unsigned char image[12800];
 int count10ms = 0;
 
 int idx_req = 1;
+int idx_req_open = 0;
 int idx_head = 0;
 int idx_column = 0;
 int idx_hold_count = 0;
+
+void idx_open(void)
+{
+    idx_req_open = 1;
+}
 
 void idx_head_up(void)
 {
@@ -108,6 +115,7 @@ void tick_100ms(void)
     } else if (button != button_prv) {
         if (button == HP_BUTTON_CENTER) {
             audio_pause();
+            idx_open();
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             volume_up();
             idx_head_up();
@@ -157,6 +165,7 @@ int main(void)
     FRESULT fr;     /* FatFs return code */
     UINT br;
     char lcd_str[20];
+    stack_data_t item;
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -229,9 +238,29 @@ int main(void)
     printf("Longan Player ver 1.00\n\r");
 
     // Search Directories / Files
+    stack_t *stack = stack_init();
     file_menu_open_dir("");
     while (1) {
-        if (idx_req) {
+        if (idx_req_open) {
+            if (file_menu_is_dir(idx_head+idx_column)) {
+                if (idx_head+idx_column > 0) { // normal directory
+                    item.head = idx_head;
+                    item.column = idx_column;
+                    stack_push(stack, &item);
+                }
+                file_menu_ch_dir(idx_head+idx_column);
+                if (idx_head+idx_column == 0) { // upper ("..") dirctory
+                    stack_pop(stack, &item);
+                    idx_head = item.head;
+                    idx_column = item.column;
+                } else { // normal directory
+                    idx_head = 0;
+                    idx_column = 0;
+                }
+                idx_req = 1;
+            }
+            idx_req_open = 0;
+        } else if (idx_req) {
             for (int i = 0; i < 5; i++) {
                 memset(lcd_str, 0, 20);
                 strncpy(lcd_str, "                 ", 18);
