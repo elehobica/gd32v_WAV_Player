@@ -10,6 +10,7 @@ cfifo_t *cfifo_create(unsigned int size)
     if (inst == NULL) return NULL;
     memset(inst, 0, sizeof(cfifo_t));
     inst->buf = (cfifo_data_t *) malloc(sizeof(cfifo_data_t) * (size + 1));
+    memset(inst->buf, 0, sizeof(cfifo_data_t) * (size + 1));
     if (inst->buf == NULL) {
         free(inst);
         return NULL;

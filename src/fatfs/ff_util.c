@@ -12,7 +12,7 @@ static uint16_t *entry_list;
 static uint32_t *sorted_flg;
 static char (*fast_fname_list)[FFL_SZ];
 static uint32_t *is_file_flg; // 0: Dir, 1: File
-static uint16_t last_order;
+static uint16_t last_order; // order number memo for last file_menu_get_fname() request
 
 //==============================
 // idx Internal Funcions
@@ -363,6 +363,11 @@ void file_menu_idle(void)
 	idx_qsort_entry_list_by_range(r_start, r_end_1, 0, max_entry_cnt);
 }
 
+void file_menu_full_sort(void)
+{
+	file_menu_sort_entry(0, max_entry_cnt);
+}
+
 FRESULT file_menu_get_fname(uint16_t order, char *str, uint16_t size)
 {
 	FRESULT fr = FR_INVALID_PARAMETER;     /* FatFs return code */
@@ -377,7 +382,33 @@ FRESULT file_menu_get_fname(uint16_t order, char *str, uint16_t size)
 
 int file_menu_is_dir(uint16_t order)
 {
-	return !get_is_file(entry_list[order]);
+	if (order < max_entry_cnt) {
+		return !get_is_file(entry_list[order]);
+	} else {
+		return -1;
+	}
+}
+
+int file_menu_is_file_playable(uint16_t order)
+{
+	int res = 0;
+	uint32_t len;
+	FRESULT fr = FR_INVALID_PARAMETER;     /* FatFs return code */
+	if (get_is_file(entry_list[order]) > 0) {
+		fr = idx_f_stat(entry_list[order], &fno);
+		if (fr == FR_OK) {
+			len = strlen(fno.fname);
+			if (len > FF_LFN_BUF) len = FF_LFN_BUF;
+			if (strncmp(&fno.fname[len-4], ".wav", 4) == 0) {
+				res = 1;
+			} else if (strncmp(&fno.fname[len-4], ".WAV", 4) == 0) {
+				res = 1;
+			}
+		}
+	} else {
+		res = -1;
+	}
+	return res;
 }
 
 uint16_t file_menu_get_max(void)

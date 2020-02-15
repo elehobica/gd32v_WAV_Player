@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "fatfs/tf_card.h"
 #include "i2s_util.h"
 #include "audio_buf.h"
@@ -118,6 +119,7 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
 
 void audio_init(void)
 {
+    memset(audio_info.filename, 0, sizeof(audio_info.filename));
     playlist = cfifo_create(2);
     count = 0;
     playing = 0;
@@ -159,6 +161,18 @@ void audio_pause(void)
     pausing = 1 - pausing;
 }
 
+void audio_stop(void)
+{
+    if (playing || pausing) {
+        dma_flag_clear(DMA1, DMA_CH1, DMA_FLAG_FTF);
+        dma_channel_disable(DMA1, DMA_CH1);
+        playing = 0;
+        pausing = 0;
+        f_close(&fil);
+    }
+    cfifo_delete(playlist);
+}
+
 void DMA1_Channel1_IRQHandler(void)
 {
     int nxt1 = (count & 0x1) ^ 0x1;
@@ -167,6 +181,7 @@ void DMA1_Channel1_IRQHandler(void)
     dma_channel_disable(DMA1, DMA_CH1);
     if (next_is_end) {
         playing = 0;
+        pausing = 0;
         return;
     }
     LEDB(0);
@@ -178,9 +193,9 @@ void DMA1_Channel1_IRQHandler(void)
     //dma_interrupt_flag_clear(DMA1, DMA_CH1, DMA_INT_FLAG_G);  /* not needed */
 }
 
-int audio_is_playing(void)
+int audio_is_playing_or_pausing(void)
 {
-    return playing;
+    return (playing || pausing);
 }
 
 const audio_info_type *audio_get_info(void)

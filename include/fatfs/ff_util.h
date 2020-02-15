@@ -11,8 +11,10 @@ FRESULT file_menu_open_dir(const TCHAR *path);
 FRESULT file_menu_ch_dir(uint16_t order);
 void file_menu_close_dir(void);
 uint16_t file_menu_get_max(void);
+void file_menu_full_sort(void);
 FRESULT file_menu_get_fname(uint16_t order, char *str, uint16_t size);
 int file_menu_is_dir(uint16_t order);
+int file_menu_is_file_playable(uint16_t order);
 void file_menu_idle(void);
 
 #endif
