@@ -219,6 +219,7 @@ int main(void)
     stack_data_t item;
     int i;
     const audio_info_type *audio_info;
+    int res;
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -321,23 +322,23 @@ int main(void)
                     idx_column = 0;
                 }
                 idx_req = 1;
-            } else {
+            } else { // File
                 file_menu_full_sort();
-                //if (file_menu_is_file_playable(idx_head+idx_column)) { // File
-                {
-                    idx_play = idx_head + idx_column;
-                    memset(file_str, 0, sizeof(file_str));
-                    file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
+                idx_play = idx_head + idx_column;
+                memset(file_str, 0, sizeof(file_str));
+                file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
+                audio_init();
+                res = audio_add_playlist_wav(file_str);
+                if (res == 1) {
                     mode = Play;
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
-                    audio_init();
-                    audio_add_playlist_wav(file_str);
                     idx_play++;
-                    //while (!file_menu_is_file_playable(++idx_play));
                     memset(file_str, 0, sizeof(file_str));
                     file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
                     audio_play();
+                } else {
+                    audio_stop();
                 }
             }
             idx_req_open = 0;
@@ -358,10 +359,10 @@ int main(void)
         } else {
             if (mode == Play) {
                 if (idx_play < file_menu_get_max()) {
-                    if (audio_add_playlist_wav(file_str)) {
+                    res = audio_add_playlist_wav(file_str);
+                    if (res == 1 || res == -1) {
                         printf("file: %s\n\r", file_str);
                         idx_play++;
-                        //while (!file_menu_is_file_playable(++idx_play));
                         memset(file_str, 0, sizeof(file_str));
                         file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
                     }
@@ -375,7 +376,7 @@ int main(void)
                 }
                 audio_info = audio_get_info();
                 memset(lcd_str, 0, sizeof(lcd_str));
-                strncpy(lcd_str, audio_info->filename, 20);
+                strncpy(lcd_str, audio_info->filename, 19);
                 LCD_ShowString(8*0,  16*0, (u8 *) lcd_str, GBLUE);
                 sprintf(lcd_str, "VOL %3d", volume_get());
                 LCD_ShowString(8*12, 16*4, (u8 *) lcd_str, WHITE);    

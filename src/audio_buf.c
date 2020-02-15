@@ -1,4 +1,4 @@
-#include <stdlib.h>
+#include <string.h>
 #include "fatfs/tf_card.h"
 #include "i2s_util.h"
 #include "audio_buf.h"
@@ -126,9 +126,26 @@ void audio_init(void)
     pausing = 0;
 }
 
+// int audio_add_playlist_wav(char *filename)
+//  returns
+//  1: cfifo loaded
+//  0: cfifo full (not loaded)
+//  -1: not playable file
 int audio_add_playlist_wav(char *filename)
 {
-    return cfifo_write(playlist, filename);
+    int res = 0;
+    uint32_t len = strlen(filename);
+    if (strncmp(&filename[len-4], ".wav", 4) == 0) {
+        res = 1;
+    } else if (strncmp(&filename[len-4], ".WAV", 4) == 0) {
+        res = 1;
+    } else {
+        res = -1;
+    }
+    if (res == 1) {
+        res = cfifo_write(playlist, filename);
+    }
+    return res;
 }
 
 void audio_play(void)

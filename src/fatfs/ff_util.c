@@ -389,28 +389,6 @@ int file_menu_is_dir(uint16_t order)
 	}
 }
 
-int file_menu_is_file_playable(uint16_t order)
-{
-	int res = 0;
-	uint32_t len;
-	FRESULT fr = FR_INVALID_PARAMETER;     /* FatFs return code */
-	if (get_is_file(entry_list[order]) > 0) {
-		fr = idx_f_stat(entry_list[order], &fno);
-		if (fr == FR_OK) {
-			len = strlen(fno.fname);
-			if (len > FF_LFN_BUF) len = FF_LFN_BUF;
-			if (strncmp(&fno.fname[len-4], ".wav", 4) == 0) {
-				res = 1;
-			} else if (strncmp(&fno.fname[len-4], ".WAV", 4) == 0) {
-				res = 1;
-			}
-		}
-	} else {
-		res = -1;
-	}
-	return res;
-}
-
 uint16_t file_menu_get_max(void)
 {
 	return max_entry_cnt;
