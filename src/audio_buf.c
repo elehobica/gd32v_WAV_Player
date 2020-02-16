@@ -26,8 +26,20 @@ int playing = 0;
 int pausing = 0;
 
 static int volume = 65; // 0 ~ 100;
-// vol_table[34] = 256;
-static const uint32_t vol_table[] = {0, 4, 8, 12, 16, 20, 24, 27, 29, 31, 34, 37, 40, 44, 48, 52, 57, 61, 67, 73, 79, 86, 94, 102, 111, 120, 131, 142, 155, 168, 183, 199, 217, 236, 256, 279, 303, 330, 359, 390, 424, 462, 502, 546, 594, 646, 703, 764, 831, 904, 983, 1069, 1163, 1265, 1376, 1496, 1627, 1770, 1925, 2094, 2277, 2476, 2693, 2929, 3186, 3465, 3769, 4099, 4458, 4849, 5274, 5736, 6239, 6785, 7380, 8026, 8730, 9495, 10327, 11232, 12216, 13286, 14450, 15716, 17093, 18591, 20220, 21992, 23919, 26015, 28294, 30773, 33470, 36403, 39592, 43061, 46835, 50938, 55402, 60256, 65536};
+
+static const uint32_t vol_table[101] = {
+    0, 4, 8, 12, 16, 20, 24, 27, 29, 31, 
+    34, 37, 40, 44, 48, 52, 57, 61, 67, 73, 
+    79, 86, 94, 102, 111, 120, 131, 142, 155, 168, 
+    183, 199, 217, 236, 256, 279, 303, 330, 359, 390, // vol_table[34] = 256;
+    424, 462, 502, 546, 594, 646, 703, 764, 831, 904, 
+    983, 1069, 1163, 1265, 1376, 1496, 1627, 1770, 1925, 2094, 
+    2277, 2476, 2693, 2929, 3186, 3465, 3769, 4099, 4458, 4849, 
+    5274, 5736, 6239, 6785, 7380, 8026, 8730, 9495, 10327, 11232, 
+    12216, 13286, 14450, 15716, 17093, 18591, 20220, 21992, 23919, 26015, 
+    28294, 30773, 33470, 36403, 39592, 43061, 46835, 50938, 55402, 60256, 
+    65536
+};
 
 static uint32_t swap16b(uint32_t in_val)
 {
@@ -39,10 +51,55 @@ static uint32_t swap16b(uint32_t in_val)
     return ((uint32_t) u.s[0] << 16) | ((uint32_t) u.s[1]);
 }
 
+static uint32_t read_list_chunk(uint32_t pos, uint32_t total_size)
+{
+    FRESULT fr;     /* FatFs return code */
+    UINT br;
+    char chunk_id[4];
+    uint32_t size;
+    uint32_t offset = 0;;
+    char str[256];
+
+    fr = f_read(&fil, chunk_id, 4, &br);
+    if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
+    offset += 4;
+    if (chunk_id[0] == 'I' && chunk_id[1] == 'N' && chunk_id[2] == 'F' && chunk_id[3] == 'O') {
+        while (offset < total_size) {
+            fr = f_read(&fil, chunk_id, 4, &br);
+            if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
+            fr = f_read(&fil, &size, sizeof(size), &br);
+            if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
+            offset += 8;
+            if (size < 255) {
+                memset(str, 0, 256);
+                fr = f_read(&fil, str, size, &br);
+                if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
+                if (chunk_id[0] == 'I' && chunk_id[1] == 'A' && chunk_id[2] == 'R' && chunk_id[3] == 'T') {
+                    printf("Artist: %s\n\r", str);
+                    memcpy(audio_info.artist, str, 256);
+                } else if (chunk_id[0] == 'I' && chunk_id[1] == 'N' && chunk_id[2] == 'A' && chunk_id[3] == 'M') {
+                    printf("Title: %s\n\r", str);
+                    memcpy(audio_info.title, str, 256);
+                } else if (chunk_id[0] == 'I' && chunk_id[1] == 'P' && chunk_id[2] == 'R' && chunk_id[3] == 'D') {
+                    printf("Album: %s\n\r", str);
+                    memcpy(audio_info.album, str, 256);
+                } else if (chunk_id[0] == 'I' && chunk_id[1] == 'P' && chunk_id[2] == 'R' && chunk_id[3] == 'T') {
+                    printf("Number: %s\n\r", str);
+                }
+            }
+            offset += (size + 1)/2*2; // next offset must be even number
+            f_lseek(&fil, pos + offset);
+        }
+    }
+    return offset;
+}
+
 static int load_next_file(void)
 {
     FRESULT fr;     /* FatFs return code */
     UINT br;
+    char chunk_id[4];
+    uint32_t size;
 
     //PA_OUT(3, 1);
     if (!cfifo_read(playlist, audio_info.filename)) {
@@ -53,12 +110,38 @@ static int load_next_file(void)
     if (fr != FR_OK) {
         printf("ERROR: f_open %d\n\r", (int) fr);
     }
-    audio_info.offset = 40;
-
+    audio_info.offset = 0xc;
+    f_lseek(&fil, audio_info.offset);
+    // Find 'data' chunk
+    while (1) {
+        f_read(&fil, chunk_id, 4, &br);
+        f_read(&fil, &size, sizeof(size), &br);
+        audio_info.offset += 8;
+        if (chunk_id[0] == 'd' && chunk_id[1] == 'a' && chunk_id[2] == 't' && chunk_id[3] == 'a') break;
+        if (chunk_id[0] == 'L' && chunk_id[1] == 'I' && chunk_id[2] == 'S' && chunk_id[3] == 'T') {
+            read_list_chunk(audio_info.offset, size);
+        }
+        audio_info.offset += size;
+        f_lseek(&fil, audio_info.offset);
+    }
+    audio_info.size = size;
+    printf("size = %d\n\r", (int) audio_info.size);
+    /*
+    audio_info.offset = 0xcc; //40;
     f_lseek(&fil, audio_info.offset);
     fr = f_read(&fil, &audio_info.size, sizeof(audio_info.size), &br);
+    printf("size = %d\n\r", audio_info.size);
+    if (fr != FR_OK) {
+        printf("ERROR: f_read %d\n\r", (int) fr);
+    }
+    */
+    //audio_info.size = size;
     //printf("Play \"%s\" Size: %d\n\r", (char *) audio_info.filename, (int) audio_info.size);
-    audio_info.offset = 44;
+    /*
+    audio_info.data_start = 0xcc+4; // 44;
+    audio_info.offset = audio_info.data_start;
+    */
+    audio_info.data_start = audio_info.offset;
     //f_lseek(&fil, audio_info.offset); /* lseek is not needed because f_read automatically make position go forward */
     //PA_OUT(3, 0);
     return 1;
@@ -85,7 +168,7 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
 
     uint32_t number = 0; // number to transfer
     while (number < sizeof(buf_16b)) {
-        uint32_t file_rest = 44 + audio_info.size - audio_info.offset;
+        uint32_t file_rest = audio_info.data_start + audio_info.size - audio_info.offset;
         uint32_t trans_rest = sizeof(buf_16b) - number;
         uint32_t trans = (file_rest >= trans_rest) ? trans_rest : file_rest;
         //LEDR(1);
@@ -96,12 +179,12 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
             audio_info.offset += trans;
             //f_lseek(&fil, audio_info.offset); /* lseek is not needed because f_read automatically make position go forward */
         } else {
-            printf("ERROR: f_read %d\n\r", (int) fr);
+            printf("ERROR: f_read %d, offset = %d\n\r", (int) fr, (int) audio_info.offset);
             f_close(&fil);
             *trans_number = number;
             return 1;
         }
-        if (44 + audio_info.size <= audio_info.offset) {
+        if (audio_info.data_start + audio_info.size <= audio_info.offset) {
             f_close(&fil);
             if (!load_next_file()) { // End of playlist
                 next_is_end = 1;

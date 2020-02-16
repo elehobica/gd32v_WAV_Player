@@ -6,7 +6,11 @@
 typedef struct {
     cfifo_data_t filename;
     uint32_t size;
+    uint32_t data_start;
     uint32_t offset;
+    char artist[256];
+    char title[256];
+    char album[256];
 } audio_info_type;
 
 /*

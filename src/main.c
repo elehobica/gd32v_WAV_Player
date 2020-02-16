@@ -24,6 +24,8 @@ int idx_head = 0;
 int idx_column = 0;
 int idx_idle_count = 0;
 int idx_play = 0;
+int idx_play_count = 0;
+int cover_exists = 0;
 char file_str[FF_LFN_BUF+1];
 
 void idx_open(void)
@@ -144,7 +146,6 @@ void tick_100ms(void)
                 idx_open();
             } else if (mode == Play) {
                 aud_pause();
-                //audio_pause();
             }
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
@@ -163,11 +164,6 @@ void tick_100ms(void)
         if (button == HP_BUTTON_CENTER) {
             if (mode == Play) {
                 aud_stop();
-                /*
-                audio_stop();
-                mode = FileView;
-                idx_req = 1;
-                */
             }
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
@@ -273,19 +269,23 @@ int main(void)
     // Opening Logo
     offset = 0;
     fr = f_open(&fil, "logo.bin", FA_READ);
+    //fr = f_open(&fil, "cover.bin", FA_READ);
     if (fr) printf("open error: %d!\n\r", (int)fr);
     f_lseek(&fil, offset);
     fr = f_read(&fil, image, sizeof(image), &br);
     LCD_ShowPicture(0,0,159,39);
+    //LCD_ShowPicture(0,0,79,79);
     offset += 12800;
     LEDB_TOG;
     f_lseek(&fil, offset);
     fr = f_read(&fil, image, sizeof(image), &br);
     LCD_ShowPicture(0,40,159,79);
+    //LCD_ShowPicture(80,0,159,79);
     LEDB_TOG;
     delay_1ms(500);
     f_close(&fil);
 
+    //delay_1ms(50000);
     // Clear Logo
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
@@ -331,12 +331,24 @@ int main(void)
                 res = audio_add_playlist_wav(file_str);
                 if (res == 1) {
                     mode = Play;
+                    { // Load cover art
+                        fr = f_open(&fil, "cover.bin", FA_READ);
+                        if (fr == FR_OK) {
+                            fr = f_read(&fil, image, sizeof(image), &br);
+                            f_close(&fil);
+                            cover_exists = 1;
+                        } else {
+                            cover_exists = 0;
+                            printf("open error: cover.bin %d!\n\r", (int)fr);
+                        }
+                    }
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
                     idx_play++;
                     memset(file_str, 0, sizeof(file_str));
                     file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
                     audio_play();
+                    idx_play_count = 0;
                 } else {
                     audio_stop();
                 }
@@ -374,12 +386,35 @@ int main(void)
                     idx_req = 1;
                     continue;
                 }
-                audio_info = audio_get_info();
-                memset(lcd_str, 0, sizeof(lcd_str));
-                strncpy(lcd_str, audio_info->filename, 19);
-                LCD_ShowString(8*0,  16*0, (u8 *) lcd_str, GBLUE);
-                sprintf(lcd_str, "VOL %3d", volume_get());
-                LCD_ShowString(8*12, 16*4, (u8 *) lcd_str, WHITE);    
+                if (!cover_exists || idx_play_count % 100 < 80) {
+                    audio_info = audio_get_info();
+
+                    memset(lcd_str, 20, sizeof(lcd_str));
+                    lcd_str[19] = '\0';
+                    memcpy(lcd_str, audio_info->title, 19);
+                    LCD_ShowString(8*0,  16*0, (u8 *) lcd_str, GBLUE);
+
+                    memset(lcd_str, 20, sizeof(lcd_str));
+                    lcd_str[19] = '\0';
+                    memcpy(lcd_str, audio_info->artist, 19);
+                    LCD_ShowString(8*0,  16*1, (u8 *) lcd_str, GBLUE);
+
+                    memset(lcd_str, 20, sizeof(lcd_str));
+                    lcd_str[19] = '\0';
+                    memcpy(lcd_str, audio_info->album, 19);
+                    LCD_ShowString(8*0,  16*2, (u8 *) lcd_str, GBLUE);
+
+                    sprintf(lcd_str, "VOL %3d", volume_get());
+                    LCD_ShowString(8*12, 16*4, (u8 *) lcd_str, WHITE);
+                } else if (cover_exists && idx_play_count % 100 == 80) {
+                    LCD_Clear(BLACK);
+                    BACK_COLOR=BLACK;
+                    LCD_ShowPicture(40,0,40+79,79);
+                } else if (cover_exists && idx_play_count % 100 == 99) {
+                    LCD_Clear(BLACK);
+                    BACK_COLOR=BLACK;
+                }
+                idx_play_count++;
             } else {
                 idx_idle_count++;
                 if (idx_idle_count > 100) {
