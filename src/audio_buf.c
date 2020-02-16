@@ -100,6 +100,7 @@ static int load_next_file(void)
     UINT br;
     char chunk_id[4];
     uint32_t size;
+    uint32_t offset;
 
     //PA_OUT(3, 1);
     if (!cfifo_read(playlist, audio_info.filename)) {
@@ -110,40 +111,24 @@ static int load_next_file(void)
     if (fr != FR_OK) {
         printf("ERROR: f_open %d\n\r", (int) fr);
     }
-    audio_info.offset = 0xc;
-    f_lseek(&fil, audio_info.offset);
+    offset = 0xc;
+    f_lseek(&fil, offset);
     // Find 'data' chunk
     while (1) {
         f_read(&fil, chunk_id, 4, &br);
         f_read(&fil, &size, sizeof(size), &br);
-        audio_info.offset += 8;
+        offset += 8;
         if (chunk_id[0] == 'd' && chunk_id[1] == 'a' && chunk_id[2] == 't' && chunk_id[3] == 'a') break;
         if (chunk_id[0] == 'L' && chunk_id[1] == 'I' && chunk_id[2] == 'S' && chunk_id[3] == 'T') {
-            read_list_chunk(audio_info.offset, size);
+            read_list_chunk(offset, size);
         }
-        audio_info.offset += size;
-        f_lseek(&fil, audio_info.offset);
+        offset += size;
+        f_lseek(&fil, offset);
     }
     audio_info.size = size;
     printf("size = %d\n\r", (int) audio_info.size);
-    /*
-    audio_info.offset = 0xcc; //40;
-    f_lseek(&fil, audio_info.offset);
-    fr = f_read(&fil, &audio_info.size, sizeof(audio_info.size), &br);
-    printf("size = %d\n\r", audio_info.size);
-    if (fr != FR_OK) {
-        printf("ERROR: f_read %d\n\r", (int) fr);
-    }
-    */
-    //audio_info.size = size;
-    //printf("Play \"%s\" Size: %d\n\r", (char *) audio_info.filename, (int) audio_info.size);
-    /*
-    audio_info.data_start = 0xcc+4; // 44;
-    audio_info.offset = audio_info.data_start;
-    */
-    audio_info.data_start = audio_info.offset;
-    //f_lseek(&fil, audio_info.offset); /* lseek is not needed because f_read automatically make position go forward */
-    //PA_OUT(3, 0);
+    audio_info.data_start = offset;
+    audio_info.offset = 0;
     return 1;
 }
 
@@ -168,7 +153,7 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
 
     uint32_t number = 0; // number to transfer
     while (number < sizeof(buf_16b)) {
-        uint32_t file_rest = audio_info.data_start + audio_info.size - audio_info.offset;
+        uint32_t file_rest = audio_info.size - audio_info.offset;
         uint32_t trans_rest = sizeof(buf_16b) - number;
         uint32_t trans = (file_rest >= trans_rest) ? trans_rest : file_rest;
         //LEDR(1);
@@ -184,7 +169,7 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
             *trans_number = number;
             return 1;
         }
-        if (audio_info.data_start + audio_info.size <= audio_info.offset) {
+        if (audio_info.size <= audio_info.offset) {
             f_close(&fil);
             if (!load_next_file()) { // End of playlist
                 next_is_end = 1;

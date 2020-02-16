@@ -7,7 +7,7 @@
 #include "adc_util.h"
 #include "fifo/stack.h"
 
-unsigned char image[12800];
+unsigned char image[160*80*2/2];
 int count10ms = 0;
 
 enum mode_enm {
@@ -207,7 +207,6 @@ int main(void)
 {
     int count = 0;
     FATFS fs;
-    int offset = 0;
     FIL fil;
     FRESULT fr;     /* FatFs return code */
     UINT br;
@@ -216,6 +215,8 @@ int main(void)
     int i;
     const audio_info_type *audio_info;
     int res;
+    uint8_t cur_min, cur_sec;
+    //uint8_t ttl_min, ttl_sec;
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -267,25 +268,15 @@ int main(void)
     }
 
     // Opening Logo
-    offset = 0;
     fr = f_open(&fil, "logo.bin", FA_READ);
-    //fr = f_open(&fil, "cover.bin", FA_READ);
     if (fr) printf("open error: %d!\n\r", (int)fr);
-    f_lseek(&fil, offset);
-    fr = f_read(&fil, image, sizeof(image), &br);
-    LCD_ShowPicture(0,0,159,39);
-    //LCD_ShowPicture(0,0,79,79);
-    offset += 12800;
-    LEDB_TOG;
-    f_lseek(&fil, offset);
-    fr = f_read(&fil, image, sizeof(image), &br);
-    LCD_ShowPicture(0,40,159,79);
-    //LCD_ShowPicture(80,0,159,79);
-    LEDB_TOG;
+    for (i = 0; i < 2; i++) {
+        fr = f_read(&fil, image, sizeof(image), &br);
+        LCD_ShowPicture(0, 40*i, 159, 40*(i+1)-1);
+    }
     delay_1ms(500);
     f_close(&fil);
 
-    //delay_1ms(50000);
     // Clear Logo
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
@@ -392,27 +383,41 @@ int main(void)
                     memset(lcd_str, 20, sizeof(lcd_str));
                     lcd_str[19] = '\0';
                     memcpy(lcd_str, audio_info->title, 19);
-                    LCD_ShowString(8*0,  16*0, (u8 *) lcd_str, GBLUE);
+                    LCD_ShowString2(8*0,  16*0, (u8 *) lcd_str, LIGHTBLUE);
 
                     memset(lcd_str, 20, sizeof(lcd_str));
                     lcd_str[19] = '\0';
                     memcpy(lcd_str, audio_info->artist, 19);
-                    LCD_ShowString(8*0,  16*1, (u8 *) lcd_str, GBLUE);
+                    LCD_ShowString2(8*0,  16*1, (u8 *) lcd_str, LIGHTGREEN);
 
                     memset(lcd_str, 20, sizeof(lcd_str));
                     lcd_str[19] = '\0';
                     memcpy(lcd_str, audio_info->album, 19);
-                    LCD_ShowString(8*0,  16*2, (u8 *) lcd_str, GBLUE);
+                    LCD_ShowString2(8*0,  16*2, (u8 *) lcd_str, GRAYBLUE);
 
-                    sprintf(lcd_str, "VOL %3d", volume_get());
-                    LCD_ShowString(8*12, 16*4, (u8 *) lcd_str, WHITE);
+                    cur_min = (audio_info->offset/44100/4) / 60;
+                    cur_sec = (audio_info->offset/44100/4) % 60;
+                    /*
+                    ttl_min = (audio_info->size/44100/4) / 60;
+                    ttl_sec = (audio_info->size/44100/4) % 60;
+                    sprintf(lcd_str, "%3d:%02d/%3d:%02d VOL%3d", cur_min, cur_sec, ttl_min, ttl_sec, volume_get());
+                    LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, WHITE);
+                    */
+                    sprintf(lcd_str, "%3d:%02d", cur_min, cur_sec);
+                    LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, GRAY);
+                    sprintf(lcd_str, "VOL%3d", volume_get());
+                    LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
                 } else if (cover_exists && idx_play_count % 100 == 80) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
+                    LCD_ShowDimPicture(0,0,0+79,79, 32);
+                    LCD_ShowDimPicture(80,0,80+79,79, 32);
                     LCD_ShowPicture(40,0,40+79,79);
                 } else if (cover_exists && idx_play_count % 100 == 99) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
+                    LCD_ShowDimPicture(0,0,0+79,79, 48);
+                    LCD_ShowDimPicture(80,0,80+79,79, 48);
                 }
                 idx_play_count++;
             } else {

@@ -528,7 +528,7 @@ void LCD_ShowChar(u16 x,u16 y,u8 num,u8 mode,u16 color)
     u8 temp;
     u8 pos,t;
 	  u16 x0=x;    
-    if(x>LCD_W-16||y>LCD_H-16)return;	    //设置窗口		   
+    if(x>LCD_W-8||y>LCD_H-16)return;	    //设置窗口		   
 	num=num-' ';//得到偏移后的值
 	LCD_Address_Set(x,y,x+8-1,y+16-1);      //设置光标位置 
 	if(!mode) //非叠加方式
@@ -571,9 +571,21 @@ void LCD_ShowString(u16 x,u16 y,const u8 *p,u16 color)
 {         
     while(*p!='\0')
     {       
-        if(x>LCD_W-16){x=0;y+=16;}
+        if(x>LCD_W-8){x=0;y+=16;}
         if(y>LCD_H-16){y=x=0;LCD_Clear(RED);}
         LCD_ShowChar(x,y,*p,0,color);
+        x+=8;
+        p++;
+    }  
+}
+
+void LCD_ShowString2(u16 x,u16 y,const u8 *p,u16 color)
+{         
+    while(*p!='\0')
+    {       
+        if(x>LCD_W-8){x=0;y+=16;}
+        if(y>LCD_H-16){y=x=0;LCD_Clear(RED);}
+        LCD_ShowChar(x,y,*p,1,color);
         x+=8;
         p++;
     }  
@@ -661,6 +673,24 @@ void LCD_ShowPicture(u16 x1,u16 y1,u16 x2,u16 y2)
 	{ 	
 		// LCD_WR_DATA8(image[i*2+1]);
 		LCD_WR_DATA8(image[i]);
+	}			
+}
+
+void LCD_ShowDimPicture(u16 x1,u16 y1,u16 x2,u16 y2, u8 dim)
+{
+	int i;
+	LCD_Address_Set(x1,y1,x2,y2);
+	u16 val;
+	u8 r, g, b;
+	for(i=0;i<12800;i+=2)
+	{
+		val = ((u16) image[i] << 8) | ((u16) image[i+1]);
+		r = ((val >> 11) & 0x1f) * dim / 256;
+		g = ((val >> 5) & 0x3f)  * dim / 256;
+		b = (val & 0x1f) * dim / 256;
+		val = ((r&0x1f)<<11) | ((g&0x3f)<<5) | (b&0x1f);
+		LCD_WR_DATA8((val >> 8)&0xff);
+		LCD_WR_DATA8(val & 0xff);
 	}			
 }
 
