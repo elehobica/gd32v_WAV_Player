@@ -203,6 +203,23 @@ void TIMER0_UP_IRQHandler(void)
     timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_UP);
 }
 
+void LCD_Scroll_ShowString(u16 x, u16 y, u8 *p, u16 color, uint16_t *sft_val, int hold_release)
+{
+    if (*sft_val == 0) {
+        if (LCD_ShowStringLnOL(x,  y, (u8 *) p, color) && hold_release) {
+            LCD_ShowStringLn(x,  y, (u8 *) p, color);
+            (*sft_val)++;
+        }
+    } else {
+        if (LCD_ShowStringLn(x + (8-(*sft_val)%8)%8,  y, (u8 *) &p[((*sft_val)+7)/8], color)) {
+            (*sft_val)++;
+        } else if (hold_release) {
+            LCD_ShowStringLn(x,  y, (u8 *) p, color);
+            *sft_val = 0;
+        }
+    }
+}
+
 int main(void)
 {
     int count = 0;
@@ -217,6 +234,9 @@ int main(void)
     int res;
     uint8_t cur_min, cur_sec;
     //uint8_t ttl_min, ttl_sec;
+    uint16_t sft_ttl = 0;
+    uint16_t sft_art = 0;
+    uint16_t sft_alb = 0;
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -377,23 +397,11 @@ int main(void)
                     idx_req = 1;
                     continue;
                 }
-                if (!cover_exists || idx_play_count % 100 < 80) {
+                if (!cover_exists || idx_play_count % 128 < 96) {
                     audio_info = audio_get_info();
-
-                    memset(lcd_str, 20, sizeof(lcd_str));
-                    lcd_str[19] = '\0';
-                    memcpy(lcd_str, audio_info->title, 19);
-                    LCD_ShowString2(8*0,  16*0, (u8 *) lcd_str, LIGHTBLUE);
-
-                    memset(lcd_str, 20, sizeof(lcd_str));
-                    lcd_str[19] = '\0';
-                    memcpy(lcd_str, audio_info->artist, 19);
-                    LCD_ShowString2(8*0,  16*1, (u8 *) lcd_str, LIGHTGREEN);
-
-                    memset(lcd_str, 20, sizeof(lcd_str));
-                    lcd_str[19] = '\0';
-                    memcpy(lcd_str, audio_info->album, 19);
-                    LCD_ShowString2(8*0,  16*2, (u8 *) lcd_str, GRAYBLUE);
+                    LCD_Scroll_ShowString(8*0, 16*0, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
+                    LCD_Scroll_ShowString(8*0, 16*1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, (idx_play_count % 16 == 0));
+                    LCD_Scroll_ShowString(8*0, 16*2, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, (idx_play_count % 16 == 0));
 
                     cur_min = (audio_info->offset/44100/4) / 60;
                     cur_sec = (audio_info->offset/44100/4) % 60;
@@ -407,13 +415,13 @@ int main(void)
                     LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, GRAY);
                     sprintf(lcd_str, "VOL%3d", volume_get());
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
-                } else if (cover_exists && idx_play_count % 100 == 80) {
+                } else if (cover_exists && idx_play_count % 128 == 96) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0,0,0+79,79, 32);
                     LCD_ShowDimPicture(80,0,80+79,79, 32);
                     LCD_ShowPicture(40,0,40+79,79);
-                } else if (cover_exists && idx_play_count % 100 == 99) {
+                } else if (cover_exists && idx_play_count % 128 == 127) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0,0,0+79,79, 48);

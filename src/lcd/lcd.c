@@ -579,16 +579,33 @@ void LCD_ShowString(u16 x,u16 y,const u8 *p,u16 color)
     }  
 }
 
-void LCD_ShowString2(u16 x,u16 y,const u8 *p,u16 color)
+// return: 0: column not overflow, column overflowed
+u16 LCD_ShowStringLn(u16 x,u16 y,const u8 *p,u16 color)
+{
+	u16 res = 0;
+    while(*p!='\0')
+    {
+        if(x>LCD_W-8){res=1;break;}
+        LCD_ShowChar(x,y,*p,0,color);
+        x+=8;
+        p++;
+    }
+	return res;
+}
+
+// Overlay
+// return: 0: column not overflow, column overflowed
+u16 LCD_ShowStringLnOL(u16 x,u16 y,const u8 *p,u16 color)
 {         
+	u16 res = 0;
     while(*p!='\0')
     {       
-        if(x>LCD_W-8){x=0;y+=16;}
-        if(y>LCD_H-16){y=x=0;LCD_Clear(RED);}
+        if(x>LCD_W-8){res=1;break;}
         LCD_ShowChar(x,y,*p,1,color);
         x+=8;
         p++;
-    }  
+    }
+	return res;
 }
 
 
@@ -676,6 +693,7 @@ void LCD_ShowPicture(u16 x1,u16 y1,u16 x2,u16 y2)
 	}			
 }
 
+// dim: 0(dark) ~ 255(original)
 void LCD_ShowDimPicture(u16 x1,u16 y1,u16 x2,u16 y2, u8 dim)
 {
 	int i;
