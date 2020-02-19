@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "./fifo/stack.h"
 
 // https://it-ojisan.tokyo/stack/
@@ -6,6 +7,7 @@
 stack_t* stack_init()
 {
     stack_t *pStack = (stack_t *) malloc(sizeof(stack_t));
+	if (pStack == NULL) printf("malloc pStack failed\n\r");
 	pStack->tail = -1;
     return pStack;
 }

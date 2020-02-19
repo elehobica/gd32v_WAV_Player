@@ -1,5 +1,6 @@
 #include <string.h>
 #include "fatfs/tf_card.h"
+#include "fatfs/ff_util.h"
 #include "i2s_util.h"
 #include "audio_buf.h"
 
@@ -17,10 +18,10 @@ int16_t buf_16b[SIZE_OF_SAMPLES];
 
 static int count = 0;
 
-static cfifo_t *playlist;
 FIL fil;
 audio_info_type audio_info;
 int32_t dma_trans_number;
+uint16_t idx_play;
 int next_is_end = 0;
 int playing = 0;
 int pausing = 0;
@@ -96,6 +97,8 @@ static uint32_t read_list_chunk(uint32_t pos, uint32_t total_size)
 
 static int load_next_file(void)
 {
+    TCHAR *fname_ptr;
+    int len;
     FRESULT fr;     /* FatFs return code */
     UINT br;
     char chunk_id[4];
@@ -103,14 +106,25 @@ static int load_next_file(void)
     uint32_t offset;
 
     //PA_OUT(3, 1);
-    if (!cfifo_read(playlist, audio_info.filename)) {
+    while (idx_play <= file_menu_get_max()) {
+        fname_ptr = file_menu_get_fname_ptr(idx_play);
+        len = strlen(fname_ptr);
+        if (strncmp(&fname_ptr[len-4], ".wav", 4) == 0 || strncmp(&fname_ptr[len-4], ".WAV", 4) == 0) {
+            break;
+        }
+        idx_play++;
+    }
+
+    if (idx_play > file_menu_get_max()) {
         return 0;
     }
 
+    memcpy(audio_info.filename, file_menu_get_fname_ptr(idx_play), 256);
     fr = f_open(&fil, audio_info.filename, FA_READ);
     if (fr != FR_OK) {
         printf("ERROR: f_open %d\n\r", (int) fr);
     }
+    idx_play++;
     offset = 0xc;
     f_lseek(&fil, offset);
     // Find 'data' chunk
@@ -141,6 +155,10 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
     FRESULT fr;     /* FatFs return code */
     UINT br;
     int next_is_end = 0; /* 0: continue, 1: next is end */
+    uint32_t number;
+    uint32_t file_rest;
+    uint32_t trans_rest;
+    uint32_t trans;
 
     if (count < INIT_MUTE_COUNT || pausing) {
         for (i = 0; i < SIZE_OF_SAMPLES; i++) buf_32b[i] = 0;
@@ -148,14 +166,17 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
         return 0;
     }
     if (count == INIT_MUTE_COUNT) {
-        load_next_file();
+        if (!load_next_file()) { // End of playable file
+            next_is_end = 1;
+            return next_is_end;
+        }
     }
 
-    uint32_t number = 0; // number to transfer
+    number = 0; // number to transfer
     while (number < sizeof(buf_16b)) {
-        uint32_t file_rest = audio_info.size - audio_info.offset;
-        uint32_t trans_rest = sizeof(buf_16b) - number;
-        uint32_t trans = (file_rest >= trans_rest) ? trans_rest : file_rest;
+        file_rest = audio_info.size - audio_info.offset;
+        trans_rest = sizeof(buf_16b) - number;
+        trans = (file_rest >= trans_rest) ? trans_rest : file_rest;
         //LEDR(1);
         fr = f_read(&fil, &buf_16b[number/2], trans, &br);
         //LEDR(0);
@@ -171,7 +192,7 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
         }
         if (audio_info.size <= audio_info.offset) {
             f_close(&fil);
-            if (!load_next_file()) { // End of playlist
+            if (!load_next_file()) { // End of playable file
                 next_is_end = 1;
                 break;
             }
@@ -188,38 +209,20 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
 void audio_init(void)
 {
     memset(audio_info.filename, 0, sizeof(audio_info.filename));
-    playlist = cfifo_create(2);
+    memset(audio_info.artist, 0, sizeof(audio_info.artist));
+    memset(audio_info.title, 0, sizeof(audio_info.title));
+    memset(audio_info.album, 0, sizeof(audio_info.album));
+    //playlist = cfifo_create(2);
     count = 0;
     playing = 0;
     pausing = 0;
 }
 
-// int audio_add_playlist_wav(char *filename)
-//  returns
-//  1: cfifo loaded
-//  0: cfifo full (not loaded)
-//  -1: not playable file
-int audio_add_playlist_wav(char *filename)
+void audio_play(uint16_t idx)
 {
-    int res = 0;
-    uint32_t len = strlen(filename);
-    if (strncmp(&filename[len-4], ".wav", 4) == 0) {
-        res = 1;
-    } else if (strncmp(&filename[len-4], ".WAV", 4) == 0) {
-        res = 1;
-    } else {
-        res = -1;
-    }
-    if (res == 1) {
-        res = cfifo_write(playlist, filename);
-    }
-    return res;
-}
-
-void audio_play(void)
-{
+    idx_play = idx;
     if (playing) return;
-    if (cfifo_is_empty(playlist)) return;
+    if (idx_play > file_menu_get_max()) return;
 
     for (int i = 0; i < SIZE_OF_SAMPLES; i++) {
         audio_buf[0][i] = 0;
@@ -255,7 +258,6 @@ void audio_stop(void)
         pausing = 0;
         f_close(&fil);
     }
-    cfifo_delete(playlist);
 }
 
 void DMA1_Channel1_IRQHandler(void)

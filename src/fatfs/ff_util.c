@@ -290,12 +290,16 @@ static void idx_sort_new(void)
 	int i, k;
 	max_entry_cnt = idx_get_max(target);
 	entry_list = (uint16_t *) malloc(sizeof(uint16_t) * max_entry_cnt);
+	if (entry_list == NULL) printf("malloc entry_list failed\n\r");
 	for (i = 0; i < max_entry_cnt; i++) entry_list[i] = i;
 	sorted_flg = (uint32_t *) malloc(sizeof(uint32_t) * (max_entry_cnt+31)/32);
+	if (sorted_flg == NULL) printf("malloc sorted_flg failed\n\r");
 	memset(sorted_flg, 0, sizeof(uint32_t) * (max_entry_cnt+31)/32);
 	is_file_flg = (uint32_t *) malloc(sizeof(uint32_t) * (max_entry_cnt+31)/32);
+	if (is_file_flg == NULL) printf("malloc is_file_flg failed\n\r");
 	memset(is_file_flg, 0, sizeof(uint32_t) * (max_entry_cnt+31)/32);
 	fast_fname_list = (char (*)[FFL_SZ]) malloc(sizeof(char[FFL_SZ]) * max_entry_cnt);
+	if (fast_fname_list == NULL) printf("malloc fast_fname_list failed\n\r");
 	for (i = 0; i < max_entry_cnt; i++) {
 		idx_f_stat(i, &fno);
 		if (!(fno.fattrib & AM_DIR)) set_is_file(i);
@@ -366,6 +370,22 @@ void file_menu_idle(void)
 void file_menu_full_sort(void)
 {
 	file_menu_sort_entry(0, max_entry_cnt);
+}
+
+TCHAR *file_menu_get_fname_ptr(uint16_t order)
+{
+	FRESULT fr = FR_INVALID_PARAMETER;     /* FatFs return code */
+	file_menu_sort_entry(order, order+5);
+	if (order < max_entry_cnt) {
+		fr = idx_f_stat(entry_list[order], &fno);
+		last_order = order;
+
+	}
+	if (fr == FR_OK) {
+		return fno.fname;
+	} else {
+		return "";
+	}
 }
 
 FRESULT file_menu_get_fname(uint16_t order, char *str, uint16_t size)

@@ -388,6 +388,32 @@ void LCD_ShowChinese(u16 x,u16 y,u8 index,u8 size,u16 color)
 	 }
 }
 
+void LCD_ShowIcon(u16 x,u16 y,u8 index,u16 color)
+{
+	u8 i,j;
+	u8 *temp,size1;
+	u8 size = 16;
+	temp=Icon16;
+  LCD_Address_Set(x,y,x+size-1,y+size-1); //设置一个汉字的区域
+  size1=size*size/8;//一个汉字所占的字节
+	temp+=index*size1;//写入的起始位置
+	for(j=0;j<size1;j++)
+	{
+		for(i=0;i<8;i++)
+		{
+			if((*temp&(1<<i))!=0)//从数据的低位开始读
+			{
+				LCD_WR_DATA(color);//点亮
+			}
+			else
+			{
+				LCD_WR_DATA(BACK_COLOR);//不点亮
+			}
+		}
+		temp++;
+	 }
+}
+
 
 /******************************************************************************
       函数说明：LCD显示汉字
@@ -699,14 +725,20 @@ void LCD_ShowDimPicture(u16 x1,u16 y1,u16 x2,u16 y2, u8 dim)
 	int i;
 	LCD_Address_Set(x1,y1,x2,y2);
 	u16 val;
-	u8 r, g, b;
+	u16 r, g, b;
 	for(i=0;i<12800;i+=2)
 	{
 		val = ((u16) image[i] << 8) | ((u16) image[i+1]);
-		r = ((val >> 11) & 0x1f) * dim / 256;
-		g = ((val >> 5) & 0x3f)  * dim / 256;
-		b = (val & 0x1f) * dim / 256;
+		r = (u16) ((((u32) val & 0xf800) * dim / 255) & 0xf800);
+		g = (u16) ((((u32) val & 0x07e0) * dim / 255) & 0x07e0);
+		b = (u16) ((((u32) val & 0x001f) * dim / 255) & 0x001f);
+		val = r | g | b;
+		/*
+		r = ((val >> 11) & 0x1f) * dim / 255;
+		g = ((val >> 5) & 0x3f)  * dim / 255;
+		b = (val & 0x1f) * dim / 255;
 		val = ((r&0x1f)<<11) | ((g&0x3f)<<5) | (b&0x1f);
+		*/
 		LCD_WR_DATA8((val >> 8)&0xff);
 		LCD_WR_DATA8(val & 0xff);
 	}			

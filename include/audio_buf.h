@@ -1,10 +1,8 @@
 #ifndef _AUDIO_BUF_H_
 #define _AUDIO_BUF_H_
 
-#include "fifo/cfifo.h"
-
 typedef struct {
-    cfifo_data_t filename;
+    char filename[256];
     uint32_t size;
     uint32_t data_start;
     uint32_t offset;
@@ -13,13 +11,9 @@ typedef struct {
     char album[256];
 } audio_info_type;
 
-/*
-void prepare_audio_buf(char *filename);
-int run_audio_buf(void);
-*/
+
 void audio_init(void);
-int audio_add_playlist_wav(char *filename);
-void audio_play(void);
+void audio_play(uint16_t idx);
 void audio_pause(void);
 void audio_stop(void);
 int audio_is_playing_or_pausing(void);

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "./fifo/cfifo.h"
 
 // Create CFIFO
@@ -7,11 +8,15 @@ cfifo_t *cfifo_create(unsigned int size)
 {
     cfifo_t *inst;
     inst = (cfifo_t *) malloc(sizeof(cfifo_t));
-    if (inst == NULL) return NULL;
+    if (inst == NULL) {
+        printf("malloc cfifo inst failed\n\r");
+        return NULL;
+    }
     memset(inst, 0, sizeof(cfifo_t));
     inst->buf = (cfifo_data_t *) malloc(sizeof(cfifo_data_t) * (size + 1));
     memset(inst->buf, 0, sizeof(cfifo_data_t) * (size + 1));
     if (inst->buf == NULL) {
+        printf("malloc cfifo inst->buf failed\n\r");
         free(inst);
         return NULL;
     }

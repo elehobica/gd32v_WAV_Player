@@ -23,10 +23,8 @@ int aud_req = 0;
 int idx_head = 0;
 int idx_column = 0;
 int idx_idle_count = 0;
-int idx_play = 0;
 int idx_play_count = 0;
 int cover_exists = 0;
-char file_str[FF_LFN_BUF+1];
 
 void idx_open(void)
 {
@@ -211,6 +209,11 @@ void LCD_Scroll_ShowString(u16 x, u16 y, u8 *p, u16 color, uint16_t *sft_val, in
             (*sft_val)++;
         }
     } else {
+        if (((x + *sft_val)%8) != 0) {
+            // delete head & tail  gabage
+            LCD_ShowString(x, y, (u8 *) " ", color);
+            LCD_ShowString(LCD_W-8, y, (u8 *) " ", color);
+        }
         if (LCD_ShowStringLn(x + (8-(*sft_val)%8)%8,  y, (u8 *) &p[((*sft_val)+7)/8], color)) {
             (*sft_val)++;
         } else if (hold_release) {
@@ -227,11 +230,11 @@ int main(void)
     FIL fil;
     FRESULT fr;     /* FatFs return code */
     UINT br;
-    char lcd_str[21];
+    char lcd_str[8];
     stack_data_t item;
     int i;
+    uint16_t progress;
     const audio_info_type *audio_info;
-    int res;
     uint8_t cur_min, cur_sec;
     //uint8_t ttl_min, ttl_sec;
     uint16_t sft_ttl = 0;
@@ -335,61 +338,45 @@ int main(void)
                 idx_req = 1;
             } else { // File
                 file_menu_full_sort();
-                idx_play = idx_head + idx_column;
-                memset(file_str, 0, sizeof(file_str));
-                file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
+                // After audio_init(), Never call file_menu_xxx() functions!
+                // Otherwise, it causes conflict between main and int routine
                 audio_init();
-                res = audio_add_playlist_wav(file_str);
-                if (res == 1) {
-                    mode = Play;
-                    { // Load cover art
-                        fr = f_open(&fil, "cover.bin", FA_READ);
-                        if (fr == FR_OK) {
-                            fr = f_read(&fil, image, sizeof(image), &br);
-                            f_close(&fil);
-                            cover_exists = 1;
-                        } else {
-                            cover_exists = 0;
-                            printf("open error: cover.bin %d!\n\r", (int)fr);
-                        }
-                    }
-                    LCD_Clear(BLACK);
-                    BACK_COLOR=BLACK;
-                    idx_play++;
-                    memset(file_str, 0, sizeof(file_str));
-                    file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
-                    audio_play();
-                    idx_play_count = 0;
+                mode = Play;
+                // Load cover art
+                fr = f_open(&fil, "cover.bin", FA_READ);
+                if (fr == FR_OK) {
+                    fr = f_read(&fil, image, sizeof(image), &br);
+                    f_close(&fil);
+                    cover_exists = 1;
                 } else {
-                    audio_stop();
+                    cover_exists = 0;
+                    printf("open error: cover.bin %d!\n\r", (int)fr);
                 }
+                LCD_Clear(BLACK);
+                BACK_COLOR=BLACK;
+                audio_play(idx_head + idx_column);
+                idx_play_count = 0;
             }
             idx_req_open = 0;
         } else if (idx_req) {
             for (i = 0; i < 5; i++) {
-                memset(lcd_str, 0, sizeof(lcd_str));
-                strncpy(lcd_str, "                 ", 18);
-                LCD_ShowString(8*2, 16*i, (u8 *) lcd_str, BLACK);
-                file_menu_get_fname(idx_head+i, lcd_str, 17);
-                if (i == idx_column) {
-                    LCD_ShowString(8*2, 16*i, (u8 *) lcd_str, GBLUE);
+                if (file_menu_is_dir(idx_head+i)) {
+                    LCD_ShowIcon(8*0, 16*i, 3, GRAY);
                 } else {
-                    LCD_ShowString(8*2, 16*i, (u8 *) lcd_str, WHITE);
+                    LCD_ShowIcon(8*0, 16*i, 4, GRAY);
+                }
+                LCD_ShowStringLn(8*2, 16*i, (u8 *) "                  ", BLACK);
+                if (i == idx_column) {
+                    LCD_ShowStringLn(8*2, 16*i, (u8 *) file_menu_get_fname_ptr(idx_head+i), GBLUE);
+                } else {
+                    LCD_ShowStringLn(8*2, 16*i, (u8 *) file_menu_get_fname_ptr(idx_head+i), WHITE);
                 }
             }
             idx_req = 0;
             idx_idle_count = 0;
         } else {
             if (mode == Play) {
-                if (idx_play < file_menu_get_max()) {
-                    res = audio_add_playlist_wav(file_str);
-                    if (res == 1 || res == -1) {
-                        printf("file: %s\n\r", file_str);
-                        idx_play++;
-                        memset(file_str, 0, sizeof(file_str));
-                        file_menu_get_fname(idx_play, file_str, sizeof(file_str)-1);
-                    }
-                } else if (!audio_is_playing_or_pausing()) {
+                if (!audio_is_playing_or_pausing()) {
                     audio_stop();
                     mode = FileView;
                     LCD_Clear(BLACK);
@@ -399,10 +386,16 @@ int main(void)
                 }
                 if (!cover_exists || idx_play_count % 128 < 96) {
                     audio_info = audio_get_info();
-                    LCD_Scroll_ShowString(8*0, 16*0, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
-                    LCD_Scroll_ShowString(8*0, 16*1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, (idx_play_count % 16 == 0));
-                    LCD_Scroll_ShowString(8*0, 16*2, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, (idx_play_count % 16 == 0));
+                    LCD_ShowIcon(8*0, 16*0, 0, GRAY);
+                    LCD_Scroll_ShowString(8*2, 16*0, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
+                    LCD_ShowIcon(8*0, 16*1, 1, GRAY);
+                    LCD_Scroll_ShowString(8*2, 16*1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, (idx_play_count % 16 == 0));
+                    LCD_ShowIcon(8*0, 16*2, 2, GRAY);
+                    LCD_Scroll_ShowString(8*2, 16*2, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, (idx_play_count % 16 == 0));
 
+                    progress = 159UL * (audio_info->offset/1024) / (audio_info->size/1024); // for avoid overflow
+                    LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
+                    LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
                     cur_min = (audio_info->offset/44100/4) / 60;
                     cur_sec = (audio_info->offset/44100/4) % 60;
                     /*
@@ -421,6 +414,11 @@ int main(void)
                     LCD_ShowDimPicture(0,0,0+79,79, 32);
                     LCD_ShowDimPicture(80,0,80+79,79, 32);
                     LCD_ShowPicture(40,0,40+79,79);
+                /*
+                } else if (cover_exists && idx_play_count % 128 >= 113 && idx_play_count % 128 < 127) {
+                    // Cover Art Fade out
+                    LCD_ShowDimPicture(40,0,40+79,79, (128 - (idx_play_count % 128))*16);
+                */
                 } else if (cover_exists && idx_play_count % 128 == 127) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
@@ -432,6 +430,9 @@ int main(void)
                 idx_idle_count++;
                 if (idx_idle_count > 100) {
                     file_menu_idle();
+                }
+                if (idx_idle_count > 60 * 10) { // auto repeat in 10 min
+                    idx_req_open = 1;
                 }
             }
         }

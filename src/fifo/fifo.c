@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "./fifo/fifo.h"
 
 // https://udp-ip.hatenadiary.org/entry/20110302/1299039216
@@ -9,10 +10,14 @@ fifo_t *fifo_create(unsigned int size)
 {
     fifo_t *inst;
     inst = (fifo_t *) malloc(sizeof(fifo_t));
-    if (inst == NULL) return NULL;
+    if (inst == NULL) {
+        printf("malloc fifo inst failed\n\r");
+        return NULL;
+    }
     memset(inst, 0, sizeof(fifo_t));
     inst->buf = (fifo_data_t *) malloc(sizeof(fifo_data_t) * (size + 1));
     if (inst->buf == NULL) {
+        printf("malloc fifo inst->buf failed\n\r");
         free(inst);
         return NULL;
     }
