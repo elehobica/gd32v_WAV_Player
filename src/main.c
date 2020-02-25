@@ -1,4 +1,4 @@
-#include "lcd/lcd.h"
+#include "lcd/my_lcd.h"
 #include "fatfs/tf_card.h"
 #include "fatfs/ff_util.h"
 #include <string.h>
@@ -20,10 +20,10 @@ int idx_req = 1;
 int idx_req_open = 0;
 int aud_req = 0;
 
-int idx_head = 0;
-int idx_column = 0;
-int idx_idle_count = 0;
-int idx_play_count = 0;
+uint16_t idx_head = 0;
+uint16_t idx_column = 0;
+uint32_t idx_idle_count = 0;
+uint32_t idx_play_count = 0;
 int cover_exists = 0;
 uint32_t data_offset_prv = 0;
 
@@ -205,28 +205,6 @@ void TIMER0_UP_IRQHandler(void)
     timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_UP);
 }
 
-void LCD_Scroll_ShowString(u16 x, u16 y, u8 *p, u16 color, uint16_t *sft_val, int hold_release)
-{
-    if (*sft_val == 0) {
-        if (LCD_ShowStringLnOL(x,  y, (u8 *) p, color) && hold_release) {
-            LCD_ShowStringLn(x,  y, (u8 *) p, color);
-            (*sft_val)++;
-        }
-    } else {
-        if (((x + *sft_val)%8) != 0) {
-            // delete head & tail  gabage
-            LCD_ShowString(x, y, (u8 *) " ", color);
-            LCD_ShowString(LCD_W-8, y, (u8 *) " ", color);
-        }
-        if (LCD_ShowStringLn(x + (8-(*sft_val)%8)%8,  y, (u8 *) &p[((*sft_val)+7)/8], color)) {
-            (*sft_val)++;
-        } else if (hold_release) {
-            LCD_ShowStringLn(x,  y, (u8 *) p, color);
-            *sft_val = 0;
-        }
-    }
-}
-
 int main(void)
 {
     int count = 0;
@@ -366,7 +344,7 @@ int main(void)
         } else if (idx_req) {
             for (i = 0; i < 5; i++) {
                 if (idx_head+i >= file_menu_get_max()) {
-                    LCD_ShowStringLn(8*0, 16*i, (u8 *) "                    ", BLACK);
+                    LCD_ShowString(8*0, 16*i, (u8 *) "                    ", BLACK);
                     continue;
                 }
                 if (file_menu_is_dir(idx_head+i)) {
@@ -374,11 +352,11 @@ int main(void)
                 } else {
                     LCD_ShowIcon(8*0, 16*i, ICON16x16_FILE, GRAY);
                 }
-                LCD_ShowStringLn(8*2, 16*i, (u8 *) "                  ", BLACK);
+                LCD_ShowString(8*2, 16*i, (u8 *) "                  ", BLACK);
                 if (i == idx_column) {
-                    LCD_ShowStringLn(8*2, 16*i, (u8 *) file_menu_get_fname_ptr(idx_head+i), GBLUE);
+                    LCD_ShowStringLn(8*2, 16*i, 8*2, LCD_W-1, (u8 *) file_menu_get_fname_ptr(idx_head+i), GBLUE);
                 } else {
-                    LCD_ShowStringLn(8*2, 16*i, (u8 *) file_menu_get_fname_ptr(idx_head+i), WHITE);
+                    LCD_ShowStringLn(8*2, 16*i, 8*2, LCD_W-1, (u8 *) file_menu_get_fname_ptr(idx_head+i), WHITE);
                 }
             }
             idx_req = 0;
@@ -408,18 +386,18 @@ int main(void)
                     }
                     if (audio_info->title[0] != '\0') {
                         LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*0, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
+                        LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, idx_play_count);
                     } else if (audio_info->filename[0] != '\0') {
                         LCD_ShowIcon(8*0, 16*0, ICON16x16_FILE, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*0, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
+                        LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, idx_play_count);
                     }
                     if (audio_info->artist[0] != '\0') {
                         LCD_ShowIcon(8*0, 16*1, ICON16x16_ARTIST, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, (idx_play_count % 16 == 0));
+                        LCD_Scroll_ShowString(8*2, 16*1, 8*2, LCD_W-1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, idx_play_count);
                     }
                     if (audio_info->album[0] != '\0') {
                         LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*2, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, (idx_play_count % 16 == 0));
+                        LCD_Scroll_ShowString(8*2, 16*2, 8*2, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
                     }
                     if (audio_info->data_size != 0) {
                         progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
