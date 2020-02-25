@@ -37,6 +37,7 @@ void idx_up(void)
 {
     if (idx_req != 1) {
         if (idx_head >= file_menu_get_max() - 5 && idx_column == 4) return;
+        if (idx_head + idx_column + 1 >= file_menu_get_max()) return;
         idx_req = 1;
         idx_column++;
         if (idx_column >= 5) {
@@ -356,10 +357,15 @@ int main(void)
                 BACK_COLOR=BLACK;
                 audio_play(idx_head + idx_column);
                 idx_play_count = 0;
+                idx_idle_count = 0;
             }
             idx_req_open = 0;
         } else if (idx_req) {
             for (i = 0; i < 5; i++) {
+                if (idx_head+i >= file_menu_get_max()) {
+                    LCD_ShowStringLn(8*0, 16*i, (u8 *) "                    ", BLACK);
+                    continue;
+                }
                 if (file_menu_is_dir(idx_head+i)) {
                     LCD_ShowIcon(8*0, 16*i, 3, GRAY);
                 } else {
@@ -393,14 +399,14 @@ int main(void)
                     LCD_ShowIcon(8*0, 16*2, 2, GRAY);
                     LCD_Scroll_ShowString(8*2, 16*2, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, (idx_play_count % 16 == 0));
 
-                    progress = 159UL * (audio_info->offset/1024) / (audio_info->size/1024); // for avoid overflow
+                    progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
                     LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
                     LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
-                    cur_min = (audio_info->offset/44100/4) / 60;
-                    cur_sec = (audio_info->offset/44100/4) % 60;
+                    cur_min = (audio_info->data_offset/44100/4) / 60;
+                    cur_sec = (audio_info->data_offset/44100/4) % 60;
                     /*
-                    ttl_min = (audio_info->size/44100/4) / 60;
-                    ttl_sec = (audio_info->size/44100/4) % 60;
+                    ttl_min = (audio_info->data_size/44100/4) / 60;
+                    ttl_sec = (audio_info->data_size/44100/4) % 60;
                     sprintf(lcd_str, "%3d:%02d/%3d:%02d VOL%3d", cur_min, cur_sec, ttl_min, ttl_sec, volume_get());
                     LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, WHITE);
                     */
@@ -431,7 +437,7 @@ int main(void)
                 if (idx_idle_count > 100) {
                     file_menu_idle();
                 }
-                if (idx_idle_count > 60 * 10) { // auto repeat in 10 min
+                if (idx_idle_count > 10 * 60 * 10) { // auto repeat in 10 min
                     idx_req_open = 1;
                 }
             }

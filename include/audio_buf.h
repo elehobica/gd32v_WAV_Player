@@ -3,9 +3,12 @@
 
 typedef struct {
     char filename[256];
-    uint32_t size;
+    uint32_t info_start;
+    uint32_t info_size;
+    uint32_t info_offset;
     uint32_t data_start;
-    uint32_t offset;
+    uint32_t data_size;
+    uint32_t data_offset;
     char artist[256];
     char title[256];
     char album[256];
