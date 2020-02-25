@@ -25,6 +25,7 @@ int idx_column = 0;
 int idx_idle_count = 0;
 int idx_play_count = 0;
 int cover_exists = 0;
+uint32_t data_offset_prv = 0;
 
 void idx_open(void)
 {
@@ -33,7 +34,7 @@ void idx_open(void)
     }
 }
 
-void idx_up(void)
+void idx_inc(void)
 {
     if (idx_req != 1) {
         if (idx_head >= file_menu_get_max() - 5 && idx_column == 4) return;
@@ -52,7 +53,7 @@ void idx_up(void)
     }
 }
 
-void idx_down(void)
+void idx_dec(void)
 {
     if (idx_req != 1) {
         if (idx_head == 0 && idx_column == 0) return;
@@ -70,29 +71,31 @@ void idx_down(void)
     } 
 }
 
-void idx_head_fast_up(void)
+void idx_fast_inc(void)
 {
     if (idx_req != 1) {
         if (idx_head >= file_menu_get_max() - 5 && idx_column == 4) return;
-        idx_req = 1;
         if (idx_head + 5 >= file_menu_get_max() - 5) {
             idx_head = file_menu_get_max() - 5;
+            idx_inc();
         } else {
             idx_head += 5;
         }
+        idx_req = 1;
     }
 }
 
-void idx_head_fast_down(void)
+void idx_fast_dec(void)
 {
     if (idx_req != 1) {
         if (idx_head == 0 && idx_column == 0) return;
-        idx_req = 1;
         if (idx_head - 5 < 0) {
             idx_head = 0;
+            idx_dec();
         } else {
             idx_head -= 5;
         }
+        idx_req = 1;
     } 
 }
 
@@ -148,13 +151,13 @@ void tick_100ms(void)
             }
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
-                idx_up();
+                idx_inc();
             } else if (mode == Play) {
                 volume_up();
             }
         } else if (button == HP_BUTTON_MINUS) {
             if (mode == FileView) {
-                idx_down();
+                idx_dec();
             } else if (mode == Play) {
                 volume_down();
             }
@@ -166,13 +169,13 @@ void tick_100ms(void)
             }
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
-                idx_head_fast_up();
+                idx_fast_inc();
             } else if (mode == Play) {
                 volume_up();
             }
         } else if (button == HP_BUTTON_MINUS) {
             if (mode == FileView) {
-                idx_head_fast_down();
+                idx_fast_dec();
             } else if (mode == Play) {
                 volume_down();
             }
@@ -367,9 +370,9 @@ int main(void)
                     continue;
                 }
                 if (file_menu_is_dir(idx_head+i)) {
-                    LCD_ShowIcon(8*0, 16*i, 3, GRAY);
+                    LCD_ShowIcon(8*0, 16*i, ICON16x16_FOLDER, GRAY);
                 } else {
-                    LCD_ShowIcon(8*0, 16*i, 4, GRAY);
+                    LCD_ShowIcon(8*0, 16*i, ICON16x16_FILE, GRAY);
                 }
                 LCD_ShowStringLn(8*2, 16*i, (u8 *) "                  ", BLACK);
                 if (i == idx_column) {
@@ -392,16 +395,37 @@ int main(void)
                 }
                 if (!cover_exists || idx_play_count % 128 < 96) {
                     audio_info = audio_get_info();
-                    LCD_ShowIcon(8*0, 16*0, 0, GRAY);
-                    LCD_Scroll_ShowString(8*2, 16*0, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
-                    LCD_ShowIcon(8*0, 16*1, 1, GRAY);
-                    LCD_Scroll_ShowString(8*2, 16*1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, (idx_play_count % 16 == 0));
-                    LCD_ShowIcon(8*0, 16*2, 2, GRAY);
-                    LCD_Scroll_ShowString(8*2, 16*2, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, (idx_play_count % 16 == 0));
-
-                    progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
-                    LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
-                    LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
+                    if (data_offset_prv == 0 || data_offset_prv > audio_info->data_offset) { // when changing to next title
+                        //LCD_Clear(BLACK);
+                        //BACK_COLOR=BLACK;
+                        if (cover_exists) {
+                            LCD_ShowDimPicture(0,0,0+79,79, 48);
+                            LCD_ShowDimPicture(80,0,80+79,79, 48);
+                        }
+                        sft_ttl = 0;
+                        sft_art = 0;
+                        sft_alb = 0;
+                    }
+                    if (audio_info->title[0] != '\0') {
+                        LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, GRAY);
+                        LCD_Scroll_ShowString(8*2, 16*0, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
+                    } else if (audio_info->filename[0] != '\0') {
+                        LCD_ShowIcon(8*0, 16*0, ICON16x16_FILE, GRAY);
+                        LCD_Scroll_ShowString(8*2, 16*0, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, (idx_play_count % 16 == 0));
+                    }
+                    if (audio_info->artist[0] != '\0') {
+                        LCD_ShowIcon(8*0, 16*1, ICON16x16_ARTIST, GRAY);
+                        LCD_Scroll_ShowString(8*2, 16*1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, (idx_play_count % 16 == 0));
+                    }
+                    if (audio_info->album[0] != '\0') {
+                        LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, GRAY);
+                        LCD_Scroll_ShowString(8*2, 16*2, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, (idx_play_count % 16 == 0));
+                    }
+                    if (audio_info->data_size != 0) {
+                        progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
+                        LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
+                        LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
+                    }
                     cur_min = (audio_info->data_offset/44100/4) / 60;
                     cur_sec = (audio_info->data_offset/44100/4) % 60;
                     /*
@@ -414,9 +438,10 @@ int main(void)
                     LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, GRAY);
                     sprintf(lcd_str, "VOL%3d", volume_get());
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
+                    data_offset_prv = audio_info->data_offset;
                 } else if (cover_exists && idx_play_count % 128 == 96) {
-                    LCD_Clear(BLACK);
-                    BACK_COLOR=BLACK;
+                    //LCD_Clear(BLACK);
+                    //BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0,0,0+79,79, 32);
                     LCD_ShowDimPicture(80,0,80+79,79, 32);
                     LCD_ShowPicture(40,0,40+79,79);
@@ -426,8 +451,8 @@ int main(void)
                     LCD_ShowDimPicture(40,0,40+79,79, (128 - (idx_play_count % 128))*16);
                 */
                 } else if (cover_exists && idx_play_count % 128 == 127) {
-                    LCD_Clear(BLACK);
-                    BACK_COLOR=BLACK;
+                    //LCD_Clear(BLACK);
+                    //BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0,0,0+79,79, 48);
                     LCD_ShowDimPicture(80,0,80+79,79, 48);
                 }

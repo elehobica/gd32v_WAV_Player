@@ -1,8 +1,10 @@
 #ifndef _AUDIO_BUF_H_
 #define _AUDIO_BUF_H_
 
+#include "fatfs/ffconf.h"
+
 typedef struct {
-    char filename[256];
+    char filename[FF_LFN_BUF+1];
     uint32_t info_start;
     uint32_t info_size;
     uint32_t info_offset;
@@ -13,7 +15,6 @@ typedef struct {
     char title[256];
     char album[256];
 } audio_info_type;
-
 
 void audio_init(void);
 void audio_play(uint16_t idx);

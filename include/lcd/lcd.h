@@ -140,7 +140,11 @@ void LCD_ShowLogo(void);
 #define LGRAYBLUE        0XA651 //浅灰蓝色(中间层颜色)
 #define LBBLUE           0X2B12 //浅棕蓝色(选择条目的反色)
 
-
+#define ICON16x16_TITLE     0
+#define ICON16x16_ARTIST    1
+#define ICON16x16_ALBUM     2
+#define ICON16x16_FOLDER    3
+#define ICON16x16_FILE      4
 					  		 
 #endif  
 	 
