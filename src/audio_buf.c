@@ -74,17 +74,18 @@ static void step_read_list_chunk_info_type(void)
             memset(str, 0, 256);
             fr = f_read(&fil, str, size, &br);
             if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
-            if (chunk_id[0] == 'I' && chunk_id[1] == 'A' && chunk_id[2] == 'R' && chunk_id[3] == 'T') {
-                printf("Artist: %s\n\r", str);
+            if (memcmp(chunk_id, "iart", 4) == 0 || memcmp(chunk_id, "IART", 4) == 0) {
+                //printf("Artist: %s\n\r", str);
                 memcpy(audio_info.artist, str, 256);
-            } else if (chunk_id[0] == 'I' && chunk_id[1] == 'N' && chunk_id[2] == 'A' && chunk_id[3] == 'M') {
-                printf("Title: %s\n\r", str);
+            } else if (memcmp(chunk_id, "inam", 4) == 0 || memcmp(chunk_id, "INAM", 4) == 0) {
+                //printf("Title: %s\n\r", str);
                 memcpy(audio_info.title, str, 256);
-            } else if (chunk_id[0] == 'I' && chunk_id[1] == 'P' && chunk_id[2] == 'R' && chunk_id[3] == 'D') {
-                printf("Album: %s\n\r", str);
+            } else if (memcmp(chunk_id, "iprd", 4) == 0 || memcmp(chunk_id, "IPRD", 4) == 0) {
+                //printf("Album: %s\n\r", str);
                 memcpy(audio_info.album, str, 256);
-            } else if (chunk_id[0] == 'I' && chunk_id[1] == 'P' && chunk_id[2] == 'R' && chunk_id[3] == 'T') {
-                printf("Number: %s\n\r", str);
+            } else if (memcmp(chunk_id, "iprt", 4) == 0 || memcmp(chunk_id, "IPRT", 4) == 0) {
+                //printf("Number: %s\n\r", str);
+                memcpy(audio_info.number, str, 256);
             }
         }
         audio_info.info_offset += (size + 1)/2*2; // next offset must be even number
@@ -101,7 +102,7 @@ static int list_chunk_is_info_type(void)
 
     fr = f_read(&fil, chunk_id, 4, &br);
     if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
-    return (chunk_id[0] == 'I' && chunk_id[1] == 'N' && chunk_id[2] == 'F' && chunk_id[3] == 'O');
+    return (memcmp(chunk_id, "info", 4) == 0 || memcmp(chunk_id, "INFO", 4) == 0);
 }
 
 static int load_next_file(void)
@@ -115,7 +116,7 @@ static int load_next_file(void)
     uint32_t offset;
 
     //PA_OUT(3, 1);
-    while (idx_play <= file_menu_get_max()) {
+    while (idx_play <= file_menu_get_size()) {
         fname_ptr = file_menu_get_fname_ptr(idx_play);
         len = strlen(fname_ptr);
         if (strncmp(&fname_ptr[len-4], ".wav", 4) == 0 || strncmp(&fname_ptr[len-4], ".WAV", 4) == 0) {
@@ -124,7 +125,7 @@ static int load_next_file(void)
         idx_play++;
     }
 
-    if (idx_play > file_menu_get_max()) {
+    if (idx_play > file_menu_get_size()) {
         return 0;
     }
 
@@ -142,8 +143,8 @@ static int load_next_file(void)
         f_read(&fil, chunk_id, 4, &br);
         f_read(&fil, &size, sizeof(size), &br);
         offset += 8;
-        if (chunk_id[0] == 'd' && chunk_id[1] == 'a' && chunk_id[2] == 't' && chunk_id[3] == 'a') break;
-        if (chunk_id[0] == 'L' && chunk_id[1] == 'I' && chunk_id[2] == 'S' && chunk_id[3] == 'T') {
+        if (memcmp(chunk_id, "data", 4) == 0 || memcmp(chunk_id, "DATA", 4) == 0) break;
+        if (memcmp(chunk_id, "list", 4) == 0 || memcmp(chunk_id, "LIST", 4) == 0) {
             if (list_chunk_is_info_type()) {
                 audio_info.info_start = offset;
                 audio_info.info_size = size;
@@ -156,7 +157,7 @@ static int load_next_file(void)
         f_lseek(&fil, offset);
     }
     audio_info.data_size = size;
-    printf("size = %d\n\r", (int) audio_info.data_size);
+    //printf("size = %d\n\r", (int) audio_info.data_size);
     audio_info.data_start = offset;
     audio_info.data_offset = 0;
     return 1;
@@ -199,7 +200,7 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
         if (fr == FR_OK) {
             number += trans;
             audio_info.data_offset += trans;
-            if (audio_info.info_start != 0) {
+            if (audio_info.info_start != 0) { // LIST Chunk Data Step Read
                 step_read_list_chunk_info_type();
                 f_lseek(&fil, audio_info.data_start + audio_info.data_offset); /* lseek is not needed because f_read automatically make position go forward */
             }
@@ -231,6 +232,7 @@ void audio_init(void)
     memset(audio_info.artist, 0, sizeof(audio_info.artist));
     memset(audio_info.title, 0, sizeof(audio_info.title));
     memset(audio_info.album, 0, sizeof(audio_info.album));
+    memset(audio_info.number, 0, sizeof(audio_info.number));
     //playlist = cfifo_create(2);
     count = 0;
     playing = 0;
@@ -241,7 +243,7 @@ void audio_play(uint16_t idx)
 {
     idx_play = idx;
     if (playing) return;
-    if (idx_play > file_menu_get_max()) return;
+    if (idx_play > file_menu_get_size()) return;
 
     for (int i = 0; i < SIZE_OF_SAMPLES; i++) {
         audio_buf[0][i] = 0;

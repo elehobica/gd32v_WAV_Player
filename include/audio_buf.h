@@ -14,6 +14,7 @@ typedef struct {
     char artist[256];
     char title[256];
     char album[256];
+    char number[8];
 } audio_info_type;
 
 void audio_init(void);

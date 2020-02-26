@@ -37,12 +37,12 @@ void idx_open(void)
 void idx_inc(void)
 {
     if (idx_req != 1) {
-        if (idx_head >= file_menu_get_max() - 5 && idx_column == 4) return;
-        if (idx_head + idx_column + 1 >= file_menu_get_max()) return;
+        if (idx_head >= file_menu_get_size() - 5 && idx_column == 4) return;
+        if (idx_head + idx_column + 1 >= file_menu_get_size()) return;
         idx_req = 1;
         idx_column++;
         if (idx_column >= 5) {
-            if (idx_head + 5 >= file_menu_get_max() - 5) {
+            if (idx_head + 5 >= file_menu_get_size() - 5) {
                 idx_column = 4;
                 idx_head++;
             } else {
@@ -74,9 +74,10 @@ void idx_dec(void)
 void idx_fast_inc(void)
 {
     if (idx_req != 1) {
-        if (idx_head >= file_menu_get_max() - 5 && idx_column == 4) return;
-        if (idx_head + 5 >= file_menu_get_max() - 5) {
-            idx_head = file_menu_get_max() - 5;
+        if (idx_head >= file_menu_get_size() - 5 && idx_column == 4) return;
+        if (idx_head + idx_column + 1 >= file_menu_get_size()) return;
+        if (idx_head + 5 >= file_menu_get_size() - 5) {
+            idx_head = file_menu_get_size() - 5;
             idx_inc();
         } else {
             idx_head += 5;
@@ -222,6 +223,7 @@ int main(void)
     uint16_t sft_ttl = 0;
     uint16_t sft_art = 0;
     uint16_t sft_alb = 0;
+    uint16_t sft_num = 0;
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -343,14 +345,14 @@ int main(void)
             idx_req_open = 0;
         } else if (idx_req) {
             for (i = 0; i < 5; i++) {
-                if (idx_head+i >= file_menu_get_max()) {
+                if (idx_head+i >= file_menu_get_size()) {
                     LCD_ShowString(8*0, 16*i, (u8 *) "                    ", BLACK);
                     continue;
                 }
                 if (file_menu_is_dir(idx_head+i)) {
-                    LCD_ShowIcon(8*0, 16*i, ICON16x16_FOLDER, GRAY);
+                    LCD_ShowIcon(8*0, 16*i, ICON16x16_FOLDER, 0, GRAY);
                 } else {
-                    LCD_ShowIcon(8*0, 16*i, ICON16x16_FILE, GRAY);
+                    LCD_ShowIcon(8*0, 16*i, ICON16x16_FILE, 0, GRAY);
                 }
                 LCD_ShowString(8*2, 16*i, (u8 *) "                  ", BLACK);
                 if (i == idx_column) {
@@ -383,27 +385,32 @@ int main(void)
                         sft_ttl = 0;
                         sft_art = 0;
                         sft_alb = 0;
+                        sft_num = 0;
                     }
                     if (audio_info->title[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, GRAY);
+                        LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, 1, GRAY);
                         LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, idx_play_count);
                     } else if (audio_info->filename[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*0, ICON16x16_FILE, GRAY);
+                        LCD_ShowIcon(8*0, 16*0, ICON16x16_FILE, 1, GRAY);
                         LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, idx_play_count);
                     }
                     if (audio_info->artist[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*1, ICON16x16_ARTIST, GRAY);
+                        LCD_ShowIcon(8*0, 16*1, ICON16x16_ARTIST, 1, GRAY);
                         LCD_Scroll_ShowString(8*2, 16*1, 8*2, LCD_W-1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, idx_play_count);
                     }
                     if (audio_info->album[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, GRAY);
+                        LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, 1, GRAY);
                         LCD_Scroll_ShowString(8*2, 16*2, 8*2, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
                     }
-                    if (audio_info->data_size != 0) {
+                    if (audio_info->data_size != 0) { // Progress Bar
                         progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
                         LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
                         LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
                     }
+                    if (audio_info->number[0] != '\0') {
+                        LCD_Scroll_ShowString(8*0, 16*4, 8*0, 8*5-1, (u8 *) audio_info->number, GRAY, &sft_num, idx_play_count);
+                    }
+                    // Elapsed Time
                     cur_min = (audio_info->data_offset/44100/4) / 60;
                     cur_sec = (audio_info->data_offset/44100/4) % 60;
                     /*
@@ -413,13 +420,17 @@ int main(void)
                     LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, WHITE);
                     */
                     sprintf(lcd_str, "%3d:%02d", cur_min, cur_sec);
-                    LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, GRAY);
-                    sprintf(lcd_str, "VOL%3d", volume_get());
+                    LCD_ShowString(8*5, 16*4, (u8 *) lcd_str, GRAY);
+                    // Volume
+                    LCD_ShowIcon(8*12, 16*4, ICON16x16_VOLUME, 1, GRAY);
+                    sprintf(lcd_str, "%3d", volume_get());
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
+                    // Battery
+                    LCD_ShowIcon(8*18, 16*4, ICON16x16_BATTERY, 1, DARKGREEN);
                     data_offset_prv = audio_info->data_offset;
                 } else if (cover_exists && idx_play_count % 128 == 96) {
-                    //LCD_Clear(BLACK);
-                    //BACK_COLOR=BLACK;
+                    LCD_Clear(BLACK);
+                    BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0,0,0+79,79, 32);
                     LCD_ShowDimPicture(80,0,80+79,79, 32);
                     LCD_ShowPicture(40,0,40+79,79);
@@ -429,8 +440,8 @@ int main(void)
                     LCD_ShowDimPicture(40,0,40+79,79, (128 - (idx_play_count % 128))*16);
                 */
                 } else if (cover_exists && idx_play_count % 128 == 127) {
-                    //LCD_Clear(BLACK);
-                    //BACK_COLOR=BLACK;
+                    LCD_Clear(BLACK);
+                    BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0,0,0+79,79, 48);
                     LCD_ShowDimPicture(80,0,80+79,79, 48);
                 }

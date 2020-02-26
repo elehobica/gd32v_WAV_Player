@@ -263,7 +263,7 @@ static void file_menu_sort_entry(uint16_t scope_start, uint16_t scope_end_1)
 	}
 }
 
-static uint16_t idx_get_max(int target)
+static uint16_t idx_get_size(int target)
 {
 	int16_t cnt = 1;
 	// Rewind directory index
@@ -288,7 +288,7 @@ static uint16_t idx_get_max(int target)
 static void idx_sort_new(void)
 {
 	int i, k;
-	max_entry_cnt = idx_get_max(target);
+	max_entry_cnt = idx_get_size(target);
 	entry_list = (uint16_t *) malloc(sizeof(uint16_t) * max_entry_cnt);
 	if (entry_list == NULL) printf("malloc entry_list failed\n\r");
 	for (i = 0; i < max_entry_cnt; i++) entry_list[i] = i;
@@ -409,7 +409,7 @@ int file_menu_is_dir(uint16_t order)
 	}
 }
 
-uint16_t file_menu_get_max(void)
+uint16_t file_menu_get_size(void)
 {
 	return max_entry_cnt;
 }
