@@ -17,6 +17,7 @@ typedef struct {
 stack_t* stack_init();
 int stack_push(stack_t *pStack, stack_data_t *item);
 int stack_pop(stack_t *pStack, stack_data_t *item);
+int stack_get_count(stack_t *pStack);
 void stack_delete(stack_t *pStack);
 
 #endif /* _STACK_H_ */

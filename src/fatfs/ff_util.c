@@ -246,7 +246,7 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 	}
 }
 
-static void file_menu_sort_entry(uint16_t scope_start, uint16_t scope_end_1)
+void file_menu_sort_entry(uint16_t scope_start, uint16_t scope_end_1)
 {
 	uint16_t wing;
 	uint16_t wing_start, wing_end_1;

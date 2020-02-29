@@ -9,5 +9,6 @@
 
 void adc_init(void);
 uint32_t adc_get_hp_button(void);
+uint16_t adc_get_raw_data(void);
 
 #endif

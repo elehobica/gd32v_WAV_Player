@@ -34,6 +34,11 @@ int stack_pop(stack_t *pStack, stack_data_t *item)
     return 1;
 }
 
+int stack_get_count(stack_t *pStack)
+{
+	return pStack->tail + 1;
+}
+
 void stack_delete(stack_t *pStack)
 {
     free(pStack);

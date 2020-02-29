@@ -66,3 +66,8 @@ uint32_t adc_get_hp_button(void)
     }
     return ret;
 }
+
+uint16_t adc_get_raw_data(void)
+{
+    return adc0_rdata;
+}

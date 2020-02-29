@@ -1,7 +1,8 @@
+#include <string.h>
+#include <time.h>
 #include "lcd/my_lcd.h"
 #include "fatfs/tf_card.h"
 #include "fatfs/ff_util.h"
-#include <string.h>
 #include "uart_util.h"
 #include "audio_buf.h"
 #include "adc_util.h"
@@ -58,8 +59,7 @@ void idx_dec(void)
     if (idx_req != 1) {
         if (idx_head == 0 && idx_column == 0) return;
         idx_req = 1;
-        idx_column--;
-        if (idx_column < 0) {
+        if (idx_column == 0) {
             if (idx_head - 5 < 0) {
                 idx_column = 0;
                 idx_head--;
@@ -67,6 +67,8 @@ void idx_dec(void)
                 idx_column = 4;
                 idx_head -= 5;
             }
+        } else {
+            idx_column--;
         }
     } 
 }
@@ -143,7 +145,8 @@ void tick_100ms(void)
     uint32_t button = adc_get_hp_button();
     if (button == HP_BUTTON_OPEN) {
         button_repeat_count = 0;
-    } else if (button != button_prv) {
+    //} else if (button != button_prv) {
+    } else if (button_prv == HP_BUTTON_OPEN) {
         if (button == HP_BUTTON_CENTER) {
             if (mode == FileView) {
                 idx_open();
@@ -214,7 +217,9 @@ int main(void)
     FRESULT fr;     /* FatFs return code */
     UINT br;
     char lcd_str[8];
+    stack_t *stack;
     stack_data_t item;
+    int stack_count;
     int i;
     uint16_t progress;
     const audio_info_type *audio_info;
@@ -289,8 +294,12 @@ int main(void)
     BACK_COLOR=BLACK;
     printf("Longan Player ver 1.00\n\r");
 
+    // Random Seed
+    printf("Random seed = %d\n\r", i = adc_get_raw_data() * adc_get_raw_data() - adc_get_raw_data());
+    srand(i);
+
     // Search Directories / Files
-    stack_t *stack = stack_init();
+    stack = stack_init();
     file_menu_open_dir("");
     for (;;) {
         if (aud_req == 1) {
@@ -451,8 +460,29 @@ int main(void)
                 if (idx_idle_count > 100) {
                     file_menu_idle();
                 }
-                if (idx_idle_count > 10 * 60 * 10) { // auto repeat in 10 min
-                    idx_req_open = 1;
+                if (idx_idle_count > 10 * 60 * 3) { // auto random play in 3 min
+                    stack_count = stack_get_count(stack);
+                    if (stack_count > 0) { // Random Play for same level folder
+                        for (i = 0; i < stack_count; i++) { // chdir to parent directory
+                            file_menu_ch_dir(0); // ".."
+                            stack_pop(stack, &item);
+                        }
+                        for (i = 0; i < stack_count; i++) { // chdir to child directory at random
+                            idx_head = (rand() % (file_menu_get_size() - 1)) + 1;
+                            idx_column = 0;
+                            file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
+                            while (file_menu_is_dir(idx_head+idx_column) <= 0) { // not directory
+                                idx_head = (idx_head < file_menu_get_size() - 1) ? idx_head + 1 : 1;
+                                file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
+                            }
+                            printf("[random_play] dir level: %d, idx: %d, name: %s\n\r", i, idx_head + idx_column, file_menu_get_fname_ptr(idx_head + idx_column));
+                            file_menu_ch_dir(idx_head + idx_column);
+                            item.head = idx_head;
+                            item.column = idx_column;
+                            stack_push(stack, &item);
+                        }
+                        idx_req_open = 1;
+                    }
                 }
             }
         }
