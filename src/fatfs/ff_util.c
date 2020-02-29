@@ -417,7 +417,9 @@ uint16_t file_menu_get_size(void)
 FRESULT file_menu_open_dir(const TCHAR *path)
 {
 	FRESULT fr = FR_INVALID_PARAMETER;     /* FatFs return code */
-	fr = f_opendir(&dir, path);
+	//fr = f_opendir(&dir, path);
+	f_chdir(path);
+	fr = f_opendir(&dir, ".");
 	f_stat_cnt = 1;
 	last_order = 0;
 	if (fr == FR_OK) {
@@ -432,6 +434,7 @@ FRESULT file_menu_ch_dir(uint16_t order)
 	if (order < max_entry_cnt) {
 		fr = idx_f_stat(entry_list[order], &fno);
 		f_closedir(&dir);
+		//printf("chdir %s\n\r", fno.fname);
 		f_chdir(fno.fname);
 		fr = f_opendir(&dir, ".");
 		idx_sort_delete();

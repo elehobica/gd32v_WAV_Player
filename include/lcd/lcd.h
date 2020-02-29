@@ -132,11 +132,13 @@ void LCD_ShowLogo(void);
  
 #define LIGHTGREEN     	 0X841F //浅绿色
 #define LGRAY 			 0XC618 //浅灰色(PANNEL),窗体背景色
-#define DARKGREEN        0x03E0
 
 #define LGRAYBLUE        0XA651 //浅灰蓝色(中间层颜色)
 #define LBBLUE           0X2B12 //浅棕蓝色(选择条目的反色)
-					  		 
+
+#define DARKGRAY         0x4208
+#define DARKGREEN        0x03E0
+
 #endif  
 	 
 	 

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include "fatfs/tf_card.h"
 #include "fatfs/ff_util.h"
 #include "i2s_util.h"
@@ -76,16 +77,16 @@ static void step_read_list_chunk_info_type(void)
             if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
             if (memcmp(chunk_id, "iart", 4) == 0 || memcmp(chunk_id, "IART", 4) == 0) {
                 //printf("Artist: %s\n\r", str);
-                memcpy(audio_info.artist, str, 256);
+                memcpy(audio_info.artist, str, sizeof(audio_info.artist));
             } else if (memcmp(chunk_id, "inam", 4) == 0 || memcmp(chunk_id, "INAM", 4) == 0) {
                 //printf("Title: %s\n\r", str);
-                memcpy(audio_info.title, str, 256);
+                memcpy(audio_info.title, str, sizeof(audio_info.title));
             } else if (memcmp(chunk_id, "iprd", 4) == 0 || memcmp(chunk_id, "IPRD", 4) == 0) {
                 //printf("Album: %s\n\r", str);
-                memcpy(audio_info.album, str, 256);
+                memcpy(audio_info.album, str, sizeof(audio_info.album));
             } else if (memcmp(chunk_id, "iprt", 4) == 0 || memcmp(chunk_id, "IPRT", 4) == 0) {
                 //printf("Number: %s\n\r", str);
-                memcpy(audio_info.number, str, 256);
+                memcpy(audio_info.number, str, sizeof(audio_info.number));
             }
         }
         audio_info.info_offset += (size + 1)/2*2; // next offset must be even number
@@ -163,6 +164,15 @@ static int load_next_file(void)
     return 1;
 }
 
+static int get_level(uint32_t val)
+{
+    int i;
+    for (i = 0; i < 101; i++) {
+        if (val < vol_table[i]) break;
+    }
+    return i;
+}
+
 // trans_number: DMA transfer count of 16bit->32bit transfer (NOT Byte count)
 // but it equals Byte count of 16bit RAW data (actually equals (Byte count of 16bit RAW data)*2/2)
 // because 16bit RAW data is expanded into 32bit data for 24bit DAC
@@ -176,9 +186,13 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
     uint32_t file_rest;
     uint32_t trans_rest;
     uint32_t trans;
+    uint32_t lvl_l = 0;
+    uint32_t lvl_r = 0;
 
     if (count < INIT_MUTE_COUNT || pausing) {
         for (i = 0; i < SIZE_OF_SAMPLES; i++) buf_32b[i] = 0;
+        audio_info.lvl_l = 0;
+        audio_info.lvl_r = 0;
         *trans_number = SIZE_OF_SAMPLES*2;
         return 0;
     }
@@ -221,7 +235,11 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
     for (i = 0; i < number/4; i++) {
         buf_32b[i*2+0] = swap16b((int) buf_16b[i*2+0] * vol_table[volume]); // L
         buf_32b[i*2+1] = swap16b((int) buf_16b[i*2+1] * vol_table[volume]); // R
+        lvl_l += abs(buf_16b[i*2+0]);
+        lvl_r += abs(buf_16b[i*2+1]);
     }
+    audio_info.lvl_l = get_level(lvl_l/(number/4));
+    audio_info.lvl_r = get_level(lvl_r/(number/4));
     *trans_number = number;
     return next_is_end;
 }
@@ -304,6 +322,11 @@ void DMA1_Channel1_IRQHandler(void)
 int audio_is_playing_or_pausing(void)
 {
     return (playing || pausing);
+}
+
+int audio_is_pausing(void)
+{
+    return pausing;
 }
 
 const audio_info_type *audio_get_info(void)

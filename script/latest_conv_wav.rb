@@ -16,8 +16,8 @@
 #  1: アーティストフォルダ名-アルバム名\*.mp3
 
 CONFIGS = {
-  _SiPeed_WAV_16GB: [
-    15.0*1000*1000*1000, %w(
+  _SiPeed_WAV_64GB: [
+    63.5*1000*1000*1000, %w(
       g:/Data/Media/Audio/*/*
     ), 0
   ]
@@ -66,7 +66,7 @@ def dir_size(path)
 end
 
 ### MAIN ###
-key = '_SiPeed_WAV_16GB'
+key = '_SiPeed_WAV_64GB'
 config = CONFIGS[key.to_sym]
 cfg_DST_DIR = "d:/Data/Media/#{key}"
 cfg_DST_DIR_MAX_SIZE = config[0]

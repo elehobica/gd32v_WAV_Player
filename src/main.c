@@ -279,6 +279,9 @@ int main(void)
         }
     }
 
+    printf("Longan Player ver 1.00\n\r");
+    printf("SD Card File System = %d\n\r", fs.fs_type); // FS_EXFAT = 4
+
     // Opening Logo
     fr = f_open(&fil, "logo.bin", FA_READ);
     if (fr) printf("open error: %d!\n\r", (int)fr);
@@ -292,7 +295,6 @@ int main(void)
     // Clear Logo
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
-    printf("Longan Player ver 1.00\n\r");
 
     // Random Seed
     printf("Random seed = %d\n\r", i = adc_get_raw_data() * adc_get_raw_data() - adc_get_raw_data());
@@ -300,7 +302,7 @@ int main(void)
 
     // Search Directories / Files
     stack = stack_init();
-    file_menu_open_dir("");
+    file_menu_open_dir("/");
     for (;;) {
         if (aud_req == 1) {
             audio_pause();
@@ -319,12 +321,21 @@ int main(void)
                     item.column = idx_column;
                     stack_push(stack, &item);
                 }
-                file_menu_ch_dir(idx_head+idx_column);
                 if (idx_head+idx_column == 0) { // upper ("..") dirctory
+                    if (fs.fs_type == FS_EXFAT) { // This is for FatFs known bug for ".." in EXFAT
+                        while (stack_get_count(stack) > 1) {
+                            stack_pop(stack, &item);
+                        }
+                        file_menu_close_dir();
+                        file_menu_open_dir("/.."); // Root directory
+                    } else {
+                        file_menu_ch_dir(idx_head+idx_column);
+                    }
                     stack_pop(stack, &item);
                     idx_head = item.head;
                     idx_column = item.column;
                 } else { // normal directory
+                    file_menu_ch_dir(idx_head+idx_column);
                     idx_head = 0;
                     idx_column = 0;
                 }
@@ -411,11 +422,19 @@ int main(void)
                         LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, 1, GRAY);
                         LCD_Scroll_ShowString(8*2, 16*2, 8*2, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
                     }
-                    if (audio_info->data_size != 0) { // Progress Bar
+                    // Level Meter L
+                    LCD_Fill(8*0, 16*3+0, (LCD_W-1)*audio_info->lvl_l/100, 16*3+0 + 4, DARKGRAY);
+                    LCD_Fill((LCD_W-1)*audio_info->lvl_l/100, 16*3+0, LCD_W-1, 16*3+0 + 4, BLACK);
+                    // Level Meter R
+                    LCD_Fill(8*0, 16*3+8, (LCD_W-1)*audio_info->lvl_r/100, 16*3+8 + 4, DARKGRAY);
+                    LCD_Fill((LCD_W-1)*audio_info->lvl_r/100, 16*3+8, LCD_W-1, 16*3+8 + 4, BLACK);
+                    // Progress Bar
+                    if (audio_info->data_size != 0) {
                         progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
                         LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
                         LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
                     }
+                    // Track Number
                     if (audio_info->number[0] != '\0') {
                         LCD_Scroll_ShowString(8*0, 16*4, 8*0, 8*5-1, (u8 *) audio_info->number, GRAY, &sft_num, idx_play_count);
                     }
@@ -428,8 +447,12 @@ int main(void)
                     sprintf(lcd_str, "%3d:%02d/%3d:%02d VOL%3d", cur_min, cur_sec, ttl_min, ttl_sec, volume_get());
                     LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, WHITE);
                     */
-                    sprintf(lcd_str, "%3d:%02d", cur_min, cur_sec);
-                    LCD_ShowString(8*5, 16*4, (u8 *) lcd_str, GRAY);
+                    if (!audio_is_pausing() || idx_play_count % 8 < 6) { // Elapsed Time blinks when pausing
+                        sprintf(lcd_str, "%3d:%02d", cur_min, cur_sec);
+                        LCD_ShowString(8*5, 16*4, (u8 *) lcd_str, GRAY);
+                    } else {
+                        LCD_ShowString(8*5, 16*4, (u8 *) "      ", GRAY);
+                    }
                     // Volume
                     LCD_ShowIcon(8*12, 16*4, ICON16x16_VOLUME, 1, GRAY);
                     sprintf(lcd_str, "%3d", volume_get());
@@ -464,7 +487,12 @@ int main(void)
                     stack_count = stack_get_count(stack);
                     if (stack_count > 0) { // Random Play for same level folder
                         for (i = 0; i < stack_count; i++) { // chdir to parent directory
-                            file_menu_ch_dir(0); // ".."
+                            if (fs.fs_type == FS_EXFAT) { // This is for FatFs known bug for ".." in EXFAT
+                                file_menu_close_dir();
+                                file_menu_open_dir("/.."); // Root directory
+                            } else {
+                                file_menu_ch_dir(0); // ".."
+                            }
                             stack_pop(stack, &item);
                         }
                         for (i = 0; i < stack_count; i++) { // chdir to child directory at random
@@ -481,6 +509,8 @@ int main(void)
                             item.column = idx_column;
                             stack_push(stack, &item);
                         }
+                        idx_head = 1;
+                        idx_column = 0;
                         idx_req_open = 1;
                     }
                 }
