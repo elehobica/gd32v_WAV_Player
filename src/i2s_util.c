@@ -41,12 +41,14 @@ void init_i2s2(void)
     rcu_periph_clock_enable(RCU_GPIOB);
     rcu_periph_clock_enable(RCU_SPI2);
 
+    // Provide i2s clock by PLL2
     RCU_CTL &= ~(RCU_CTL_PLL1EN | RCU_CTL_PLL2EN);
     rcu_predv1_config(RCU_PREDV1_DIV2);
     rcu_pll2_config(RCU_PLL2_MUL12);
     rcu_i2s2_clock_config(RCU_I2S2SRC_CKPLL2_MUL2);
     RCU_CTL |= (RCU_CTL_PLL1EN | RCU_CTL_PLL2EN);
 
+    // i2s2 pins I2S_CK: PB3*, I2S_WS: PA15*, I2S_SD: PB5 (*: JTAG function must be disable)
     gpio_pin_remap_config(GPIO_SWJ_DISABLE_REMAP, ENABLE);
     gpio_init(GPIOA, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_15);
     gpio_init(GPIOB, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_3 | GPIO_PIN_5);    

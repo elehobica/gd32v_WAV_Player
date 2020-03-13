@@ -139,6 +139,8 @@ void LCD_ShowLogo(void);
 #define DARKGRAY         0x4208
 #define DARKGREEN        0x03E0
 
+#define DARKRED          0x7800
+
 #endif  
 	 
 	 

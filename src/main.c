@@ -10,6 +10,7 @@
 
 unsigned char image[160*80*2/2];
 int count10ms = 0;
+uint16_t bat_lvl; // 0 ~ 99
 
 enum mode_enm {
     FileView = 0,
@@ -142,7 +143,7 @@ uint32_t button_repeat_count = 0;
 
 void tick_100ms(void)
 {
-    uint32_t button = adc_get_hp_button();
+    uint32_t button = adc0_get_hp_button();
     if (button == HP_BUTTON_OPEN) {
         button_repeat_count = 0;
     //} else if (button != button_prv) {
@@ -192,8 +193,9 @@ void tick_100ms(void)
 
 void tick_1sec(void)
 {
-    //LEDG_TOG;
     LEDG(0);
+    // Battery value update
+    bat_lvl = adc1_get_bat_x100();
 }
 
 void TIMER0_UP_IRQHandler(void)
@@ -207,6 +209,48 @@ void TIMER0_UP_IRQHandler(void)
         tick_1sec();
     }
     timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_UP);
+}
+
+void power_off(char *msg)
+{
+    int i;
+    LCD_ShowString(24,  0, (u8 *)(msg), BLACK);
+    LCD_ShowString(24, 16, (u8 *)(msg), BLUE);
+    LCD_ShowString(24, 32, (u8 *)(msg), BRED);
+    LCD_ShowString(24, 48, (u8 *)(msg), GBLUE);
+    LCD_ShowString(24, 64, (u8 *)(msg), RED);
+    for (i = 0; i < 10; i++) {
+        LEDR_TOG;
+        delay_1ms(200);
+        LEDG_TOG;
+        delay_1ms(200);
+        LEDB_TOG;
+        delay_1ms(200);
+    }
+    PC_OUT(14, 0); // Power Off
+    while (1);
+    //eclic_system_reset();
+}
+
+void show_battery(uint16_t x, uint16_t y)
+{
+    uint16_t color;
+    if (bat_lvl >= 80) {
+        color = 0x0600;
+    } else if (bat_lvl < 20) {
+        color = 0xc000;
+    } else { // if under 80%, gradation from green (0x0600: 80%) to red (0xc000: 0%)
+        color = (((0x18 * (60 - (bat_lvl-20)) / 60) & 0x1f) << 11) | (((0x30 * (bat_lvl-20) / 60) & 0x3f) << 5);
+    }
+    LCD_ShowIcon(x, y, ICON16x16_BATTERY, 1, color);
+    if (bat_lvl/10 < 9) {
+        LCD_Fill(x+4, y+4, x+11, y+13-bat_lvl/10-1, BLACK);
+    }
+    LCD_Fill(x+4, y+13-bat_lvl/10, x+11, y+13, color);
+
+    if (bat_lvl < 3) { // Low Battery
+        power_off("Low Battery!");
+    }
 }
 
 int main(void)
@@ -241,18 +285,34 @@ int main(void)
     LEDG(1);
     LEDB(1);
 
+    /*
     // Debug Output (PA3 for Proving) by PA_OUT(3, s)
     rcu_periph_clock_enable(RCU_GPIOA);
     gpio_init(GPIOA, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_3);
+    */
 
     init_uart0();
-    adc_init();
-    timer_irq_init();
 
     // init OLED
     Lcd_Init();
-    LCD_Clear(WHITE);
-    BACK_COLOR=WHITE;
+    LCD_Clear(BLACK);
+    BACK_COLOR=BLACK;
+
+    // Progress Bar display before stable power-on for 1 sec
+    // to avoid unintended power-on when Headphone plug in
+    for (i = 0; i < 40; i++) {
+        LCD_Fill(i*4, 4*16+8, i*4+3, 4*16+15, GRAY);
+        delay_1ms(25);
+    }
+
+    // Power On Pin (PC14)
+    rcu_periph_clock_enable(RCU_GPIOC);
+    gpio_init(GPIOC, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_14);
+    PC_OUT(14, 1);
+
+    adc0_init();
+    adc1_init();
+    timer_irq_init();
 
     // Mount FAT
     fr = f_mount(&fs, "", 1); // 0: mount successful ; 1: mount failed
@@ -263,26 +323,15 @@ int main(void)
     }
 
     if (fr) { // Mount Fail (Loop)
-        LCD_ShowString(24,  0, (u8 *)("no card found!"), BLACK);
-        LCD_ShowString(24, 16, (u8 *)("no card found!"), BLUE);
-        LCD_ShowString(24, 32, (u8 *)("no card found!"), BRED);
-        LCD_ShowString(24, 48, (u8 *)("no card found!"), GBLUE);
-        LCD_ShowString(24, 64, (u8 *)("no card found!"), RED);
-        while (1) {
-            LEDR_TOG;
-            delay_1ms(200);
-            LEDG_TOG;
-            delay_1ms(200);
-            LEDB_TOG;
-            delay_1ms(200);
-            eclic_system_reset();
-        }
+        power_off("No Card Found!");
     }
 
     printf("Longan Player ver 1.00\n\r");
     printf("SD Card File System = %d\n\r", fs.fs_type); // FS_EXFAT = 4
 
     // Opening Logo
+    LCD_Clear(WHITE);
+    BACK_COLOR=WHITE;
     fr = f_open(&fil, "logo.bin", FA_READ);
     if (fr) printf("open error: %d!\n\r", (int)fr);
     for (i = 0; i < 2; i++) {
@@ -296,8 +345,17 @@ int main(void)
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
 
+    // DAC MCLK out from CK_OUT0 (PA8)
+    gpio_init(GPIOA, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_8);
+    rcu_ckout0_config(RCU_CKOUT0SRC_CKPLL2_DIV2);
+
+    // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
+    rcu_periph_clock_enable(RCU_GPIOB);
+    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
+    PB_OUT(6, 1);
+
     // Random Seed
-    printf("Random seed = %d\n\r", i = adc_get_raw_data() * adc_get_raw_data() - adc_get_raw_data());
+    printf("Random seed = %d\n\r", i = adc0_get_raw_data() * adc0_get_raw_data() - adc0_get_raw_data());
     srand(i);
 
     // Search Directories / Files
@@ -322,14 +380,22 @@ int main(void)
                     stack_push(stack, &item);
                 }
                 if (idx_head+idx_column == 0) { // upper ("..") dirctory
-                    if (fs.fs_type == FS_EXFAT) { // This is for FatFs known bug for ".." in EXFAT
-                        while (stack_get_count(stack) > 1) {
-                            stack_pop(stack, &item);
+                    if (stack_get_count(stack) > 0) {
+                        if (fs.fs_type == FS_EXFAT) { // This is for FatFs known bug for ".." in EXFAT
+                            while (stack_get_count(stack) > 1) {
+                                stack_pop(stack, &item);
+                            }
+                            file_menu_close_dir();
+                            file_menu_open_dir("/"); // Root directory
+                        } else {
+                            file_menu_ch_dir(idx_head+idx_column);
                         }
+                    } else { // Already in top directory
                         file_menu_close_dir();
-                        file_menu_open_dir("/.."); // Root directory
-                    } else {
-                        file_menu_ch_dir(idx_head+idx_column);
+                        file_menu_open_dir("/"); // Root directory
+                        item.head = 0;
+                        item.column = 0;
+                        stack_push(stack, &item);
                     }
                     stack_pop(stack, &item);
                     idx_head = item.head;
@@ -457,8 +523,6 @@ int main(void)
                     LCD_ShowIcon(8*12, 16*4, ICON16x16_VOLUME, 1, GRAY);
                     sprintf(lcd_str, "%3d", volume_get());
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
-                    // Battery
-                    LCD_ShowIcon(8*18, 16*4, ICON16x16_BATTERY, 1, DARKGREEN);
                     data_offset_prv = audio_info->data_offset;
                 } else if (cover_exists && idx_play_count % 128 == 96) {
                     LCD_Clear(BLACK);
@@ -489,7 +553,7 @@ int main(void)
                         for (i = 0; i < stack_count; i++) { // chdir to parent directory
                             if (fs.fs_type == FS_EXFAT) { // This is for FatFs known bug for ".." in EXFAT
                                 file_menu_close_dir();
-                                file_menu_open_dir("/.."); // Root directory
+                                file_menu_open_dir("/"); // Root directory
                             } else {
                                 file_menu_ch_dir(0); // ".."
                             }
@@ -516,6 +580,8 @@ int main(void)
                 }
             }
         }
+        // Battery
+        show_battery(8*18, 16*4);
         delay_1ms(100);
     }
     file_menu_close_dir();

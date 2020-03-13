@@ -5,7 +5,7 @@
 dma_parameter_struct dma_adc0;
 volatile uint16_t adc0_rdata;
 
-void adc_init(void)
+void adc0_init(void)
 {
     // use PA0 pin
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -20,7 +20,9 @@ void adc_init(void)
     adc_dma_mode_enable(ADC0);
     // set order rank0 = PA0, sample time = 7.5 cycle @13.5MHz 
     // convert time = 7.5 + 12.5 = 20 cycle @13.5MHz = 1.48us
-    adc_regular_channel_config(ADC0, 0, ADC_CHANNEL_0, ADC_SAMPLETIME_7POINT5);
+    //adc_regular_channel_config(ADC0, 0, ADC_CHANNEL_0, ADC_SAMPLETIME_7POINT5);
+    // Too short sample time causes input impedance low (1.46kohm@1.5cyc, 9.49kohm@7.5cyc)
+    adc_regular_channel_config(ADC0, 0, ADC_CHANNEL_0, ADC_SAMPLETIME_55POINT5);
     adc_channel_length_config(ADC0, ADC_REGULAR_CHANNEL, 1);
     // set oversampling-average mode
     adc_oversample_mode_config(ADC0, ADC_OVERSAMPLING_ALL_CONVERT, ADC_OVERSAMPLING_SHIFT_NONE, ADC_OVERSAMPLING_RATIO_MUL8);
@@ -50,7 +52,7 @@ void adc_init(void)
     adc_software_trigger_enable(ADC0, ADC_REGULAR_CHANNEL);
 }
 
-uint32_t adc_get_hp_button(void)
+uint32_t adc0_get_hp_button(void)
 {
     uint32_t ret;
     if (adc0_rdata < 198) { // < 160mV  4095*160/3300 (CENTER)
@@ -67,7 +69,88 @@ uint32_t adc_get_hp_button(void)
     return ret;
 }
 
-uint16_t adc_get_raw_data(void)
+uint16_t adc0_get_raw_data(void)
 {
     return adc0_rdata;
+}
+
+void adc1_init(void)
+{
+    rcu_periph_clock_enable(RCU_GPIOA);
+    gpio_init(GPIOA, GPIO_MODE_AIN, GPIO_OSPEED_50MHZ, GPIO_PIN_3);
+
+    adc_calibration_enable(ADC1);
+
+    RCU_CFG0 |= (0b10 << 14) | (1 << 28); // ADC clock = 108MHz / 8 = 13.5MHz(14MHz max.)
+    rcu_periph_clock_enable(RCU_ADC1);
+
+    adc_enable(ADC1);
+}
+
+uint16_t adc1_get(int ch)
+{
+    ADC_RSQ2(ADC1) = ch;
+    //ADC_SAMPT1(ADC1) = 0x3;
+
+    ADC_SAMPT1(ADC1) = ADC_SAMPLETIME_239POINT5;
+    ADC_CTL1(ADC1) |= ADC_CTL1_ADCON;
+    /*
+    ADC_CTL1(ADC1) |= ADC_CTL1_ADCON | (0x7<<17);
+    ADC_CTL1(ADC1) |= ADC_CTL1_SWRCST;
+    */
+
+    while( !(ADC_STAT(ADC1) & ADC_STAT_EOC) );
+
+    uint16_t ret = ADC_RDATA(ADC1) & 0xFFFF;
+    ADC_STAT(ADC1) &= ~ADC_STAT_EOC;
+    return ret;
+}
+
+uint16_t adc1_get_bat_x100(void) // outputs 0 ~ 99
+{
+    int i;
+    uint32_t adc_val = 0;
+
+    for (i = 0; i < 5; i++) {
+        adc_val += adc1_get(3);
+    }
+    adc_val /= 5;
+    // assuming register ratio 62kohm : 200kohm, ADC internal impedance 188kohm
+    // voltage ratio = 104 / (62 + 104)
+    adc_val = (adc_val * 3300 * (62+104) / 104 / 4095);
+
+    if (adc_val < 3150) {
+        adc_val = 0;
+    } else if (adc_val > 4200) {
+        adc_val = 99;
+    } else {
+        adc_val -= 3150;
+        adc_val = adc_val * 100 / (4200-3150);
+    }
+    return adc_val;
+}
+
+void adc1_init_bak(void)
+{
+    rcu_periph_clock_enable(RCU_GPIOA);
+    gpio_init(GPIOA, GPIO_MODE_AIN, GPIO_OSPEED_50MHZ, GPIO_PIN_3);
+
+    adc_calibration_enable(ADC1);
+
+    RCU_CFG0 |= (0b10 << 14) | (1 << 28); // ADC clock = 108MHz / 8 = 13.5MHz(14MHz max.)
+    rcu_periph_clock_enable(RCU_ADC1);
+    ADC_CTL1(ADC1) |= ADC_CTL1_ADCON;
+}
+
+uint16_t adc1_get_bak(int ch)
+{
+    ADC_RSQ2(ADC1) = 0;
+    ADC_RSQ2(ADC1) = ch;
+    ADC_CTL1(ADC1) |= ADC_CTL1_ADCON;
+
+    while( !(ADC_STAT(ADC1) & ADC_STAT_EOC) );
+
+    uint16_t ret = ADC_RDATA(ADC1) & 0xFFFF;
+    ADC_STAT(ADC1) &= ~ADC_STAT_EOC;
+    return ret;
 }

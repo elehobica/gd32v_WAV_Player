@@ -7,8 +7,12 @@
 #define HP_BUTTON_PLUS     3
 #define HP_BUTTON_MINUS    4
 
-void adc_init(void);
-uint32_t adc_get_hp_button(void);
-uint16_t adc_get_raw_data(void);
+void adc0_init(void);
+uint32_t adc0_get_hp_button(void);
+uint16_t adc0_get_raw_data(void);
+
+void adc1_init(void);
+uint16_t adc1_get(int ch);
+uint16_t adc1_get_bat_x100(void);
 
 #endif
