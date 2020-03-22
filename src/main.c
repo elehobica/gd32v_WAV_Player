@@ -9,8 +9,9 @@
 #include "fifo/stack.h"
 
 unsigned char image[160*80*2/2];
-int count10ms = 0;
-uint16_t bat_lvl; // 0 ~ 99
+uint32_t count10ms = 0;
+uint32_t count_sec = 0;
+uint16_t bat_lvl = 99; // 0 ~ 99
 
 enum mode_enm {
     FileView = 0,
@@ -29,10 +30,20 @@ uint32_t idx_play_count = 0;
 int cover_exists = 0;
 uint32_t data_offset_prv = 0;
 
+uint32_t button_prv = HP_BUTTON_OPEN;
+uint32_t button_repeat_count = 0;
+
 void idx_open(void)
 {
     if (idx_req_open != 1) {
         idx_req_open = 1;
+    }
+}
+
+void idx_random_open(void)
+{
+    if (idx_req_open != 2) {
+        idx_req_open = 2;
     }
 }
 
@@ -138,8 +149,30 @@ void tick_10ms(void)
     LEDG(1);
 }
 
-uint32_t button_prv = HP_BUTTON_OPEN;
-uint32_t button_repeat_count = 0;
+void power_off(char *msg, int is_error)
+{
+    int i;
+    LCD_Clear(BLACK);
+    BACK_COLOR=BLACK;
+    if (is_error) {
+        LCD_ShowString(24,  0, (u8 *)(msg), BLACK);
+        LCD_ShowString(24, 16, (u8 *)(msg), BLUE);
+        LCD_ShowString(24, 32, (u8 *)(msg), BRED);
+        LCD_ShowString(24, 48, (u8 *)(msg), GBLUE);
+        LCD_ShowString(24, 64, (u8 *)(msg), RED);
+        for (i = 0; i < 10; i++) {
+            LEDR_TOG;
+            delay_1ms(200);
+            LEDG_TOG;
+            delay_1ms(200);
+            LEDB_TOG;
+            delay_1ms(200);
+        }
+    }
+    PC_OUT(14, 0); // Power Off
+    while (1);
+    //eclic_system_reset();
+}
 
 void tick_100ms(void)
 {
@@ -147,7 +180,7 @@ void tick_100ms(void)
     if (button == HP_BUTTON_OPEN) {
         button_repeat_count = 0;
     //} else if (button != button_prv) {
-    } else if (button_prv == HP_BUTTON_OPEN) {
+    } else if (button_prv == HP_BUTTON_OPEN) { // push
         if (button == HP_BUTTON_CENTER) {
             if (mode == FileView) {
                 idx_open();
@@ -156,35 +189,46 @@ void tick_100ms(void)
             }
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
-                idx_inc();
+                idx_dec();
             } else if (mode == Play) {
                 volume_up();
             }
         } else if (button == HP_BUTTON_MINUS) {
             if (mode == FileView) {
-                idx_dec();
+                idx_inc();
             } else if (mode == Play) {
                 volume_down();
             }
         }
-    } else if (button_repeat_count > 20) {
+    } else if (button_repeat_count == 10) { // long push
         if (button == HP_BUTTON_CENTER) {
             if (mode == Play) {
                 aud_stop();
             }
+            button_repeat_count++; // only once
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
-                idx_fast_inc();
+                idx_fast_dec();
             } else if (mode == Play) {
                 volume_up();
             }
         } else if (button == HP_BUTTON_MINUS) {
             if (mode == FileView) {
-                idx_fast_dec();
+                idx_fast_inc();
             } else if (mode == Play) {
                 volume_down();
             }
         }
+    } else if (button_repeat_count == 30) { // long long push
+        if (button == HP_BUTTON_CENTER) {
+            idx_random_open();
+        }
+        button_repeat_count++; // only once
+    } else if (button_repeat_count == 120) { // long long long push
+        if (button == HP_BUTTON_CENTER) {
+            power_off("", 0);
+        }
+        button_repeat_count++; // only once
     } else if (button == button_prv) {
         button_repeat_count++;
     }
@@ -194,8 +238,12 @@ void tick_100ms(void)
 void tick_1sec(void)
 {
     LEDG(0);
-    // Battery value update
-    bat_lvl = adc1_get_bat_x100();
+    if (count_sec > 5) {
+        // Battery value update
+        bat_lvl = adc1_get_bat_x100();
+    } else {
+        adc1_get_bat_x100();
+    }
 }
 
 void TIMER0_UP_IRQHandler(void)
@@ -207,29 +255,9 @@ void TIMER0_UP_IRQHandler(void)
     if (count10ms++ >= 100) {
         count10ms = 0;
         tick_1sec();
+        count_sec++;
     }
     timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_UP);
-}
-
-void power_off(char *msg)
-{
-    int i;
-    LCD_ShowString(24,  0, (u8 *)(msg), BLACK);
-    LCD_ShowString(24, 16, (u8 *)(msg), BLUE);
-    LCD_ShowString(24, 32, (u8 *)(msg), BRED);
-    LCD_ShowString(24, 48, (u8 *)(msg), GBLUE);
-    LCD_ShowString(24, 64, (u8 *)(msg), RED);
-    for (i = 0; i < 10; i++) {
-        LEDR_TOG;
-        delay_1ms(200);
-        LEDG_TOG;
-        delay_1ms(200);
-        LEDB_TOG;
-        delay_1ms(200);
-    }
-    PC_OUT(14, 0); // Power Off
-    while (1);
-    //eclic_system_reset();
 }
 
 void show_battery(uint16_t x, uint16_t y)
@@ -249,8 +277,23 @@ void show_battery(uint16_t x, uint16_t y)
     LCD_Fill(x+4, y+13-bat_lvl/10, x+11, y+13, color);
 
     if (bat_lvl < 3) { // Low Battery
-        power_off("Low Battery!");
+        power_off("Low Battery!", 1);
     }
+}
+
+void set_backlight_on(void)
+{
+    // LCD BackLight On (PB7: 1: bright, Hi-Z: dark)
+    rcu_periph_clock_enable(RCU_GPIOB);
+    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
+    PB_OUT(7, 1);
+}
+
+void set_backlight_dark(void)
+{
+    // LCD BackLight dark (PB7: 1: bright, Hi-Z: dark)
+    rcu_periph_clock_enable(RCU_GPIOB);
+    gpio_init(GPIOB, GPIO_MODE_IN_FLOATING, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
 }
 
 int main(void)
@@ -297,6 +340,7 @@ int main(void)
     Lcd_Init();
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
+    set_backlight_on();
 
     // Progress Bar display before stable power-on for 1 sec
     // to avoid unintended power-on when Headphone plug in
@@ -323,7 +367,7 @@ int main(void)
     }
 
     if (fr) { // Mount Fail (Loop)
-        power_off("No Card Found!");
+        power_off("No Card Found!", 1);
     }
 
     printf("Longan Player ver 1.00\n\r");
@@ -372,7 +416,7 @@ int main(void)
             BACK_COLOR=BLACK;
             aud_req = 0;
             idx_req = 1;
-        } else if (idx_req_open) {
+        } else if (idx_req_open == 1) {
             if (file_menu_is_dir(idx_head+idx_column) > 0) { // Directory
                 if (idx_head+idx_column > 0) { // normal directory
                     item.head = idx_head;
@@ -429,6 +473,39 @@ int main(void)
                 idx_idle_count = 0;
             }
             idx_req_open = 0;
+        } else if (idx_req_open == 2) {
+            if (!audio_is_playing_or_pausing()) {
+                audio_stop();
+            }
+            stack_count = stack_get_count(stack);
+            if (stack_count > 0) { // Random Play for same level folder
+                for (i = 0; i < stack_count; i++) { // chdir to parent directory
+                    if (fs.fs_type == FS_EXFAT) { // This is for FatFs known bug for ".." in EXFAT
+                        file_menu_close_dir();
+                        file_menu_open_dir("/"); // Root directory
+                    } else {
+                        file_menu_ch_dir(0); // ".."
+                    }
+                    stack_pop(stack, &item);
+                }
+                for (i = 0; i < stack_count; i++) { // chdir to child directory at random
+                    idx_head = (rand() % (file_menu_get_size() - 1)) + 1;
+                    idx_column = 0;
+                    file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
+                    while (file_menu_is_dir(idx_head+idx_column) <= 0) { // not directory
+                        idx_head = (idx_head < file_menu_get_size() - 1) ? idx_head + 1 : 1;
+                        file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
+                    }
+                    printf("[random_play] dir level: %d, idx: %d, name: %s\n\r", i, idx_head + idx_column, file_menu_get_fname_ptr(idx_head + idx_column));
+                    file_menu_ch_dir(idx_head + idx_column);
+                    item.head = idx_head;
+                    item.column = idx_column;
+                    stack_push(stack, &item);
+                }
+                idx_head = 1;
+                idx_column = 0;
+                idx_req_open = 1;
+            }
         } else if (idx_req) {
             for (i = 0; i < 5; i++) {
                 if (idx_head+i >= file_menu_get_size()) {
@@ -457,7 +534,12 @@ int main(void)
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
                     idx_req = 1;
+                    idx_idle_count = 0;
                     continue;
+                } else if (audio_is_pausing()) {
+                    idx_idle_count++;
+                } else {
+                    idx_idle_count = 0;
                 }
                 if (!cover_exists || idx_play_count % 128 < 96) {
                     audio_info = audio_get_info();
@@ -473,51 +555,53 @@ int main(void)
                         sft_alb = 0;
                         sft_num = 0;
                     }
-                    if (audio_info->title[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, 1, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, idx_play_count);
-                    } else if (audio_info->filename[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*0, ICON16x16_FILE, 1, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, idx_play_count);
-                    }
-                    if (audio_info->artist[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*1, ICON16x16_ARTIST, 1, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*1, 8*2, LCD_W-1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, idx_play_count);
-                    }
-                    if (audio_info->album[0] != '\0') {
-                        LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, 1, GRAY);
-                        LCD_Scroll_ShowString(8*2, 16*2, 8*2, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
-                    }
-                    // Level Meter L
-                    LCD_Fill(8*0, 16*3+0, (LCD_W-1)*audio_info->lvl_l/100, 16*3+0 + 4, DARKGRAY);
-                    LCD_Fill((LCD_W-1)*audio_info->lvl_l/100, 16*3+0, LCD_W-1, 16*3+0 + 4, BLACK);
-                    // Level Meter R
-                    LCD_Fill(8*0, 16*3+8, (LCD_W-1)*audio_info->lvl_r/100, 16*3+8 + 4, DARKGRAY);
-                    LCD_Fill((LCD_W-1)*audio_info->lvl_r/100, 16*3+8, LCD_W-1, 16*3+8 + 4, BLACK);
-                    // Progress Bar
-                    if (audio_info->data_size != 0) {
-                        progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
-                        LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
-                        LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
-                    }
-                    // Track Number
-                    if (audio_info->number[0] != '\0') {
-                        LCD_Scroll_ShowString(8*0, 16*4, 8*0, 8*5-1, (u8 *) audio_info->number, GRAY, &sft_num, idx_play_count);
-                    }
-                    // Elapsed Time
-                    cur_min = (audio_info->data_offset/44100/4) / 60;
-                    cur_sec = (audio_info->data_offset/44100/4) % 60;
-                    /*
-                    ttl_min = (audio_info->data_size/44100/4) / 60;
-                    ttl_sec = (audio_info->data_size/44100/4) % 60;
-                    sprintf(lcd_str, "%3d:%02d/%3d:%02d VOL%3d", cur_min, cur_sec, ttl_min, ttl_sec, volume_get());
-                    LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, WHITE);
-                    */
-                    if (!audio_is_pausing() || idx_play_count % 8 < 6) { // Elapsed Time blinks when pausing
-                        sprintf(lcd_str, "%3d:%02d", cur_min, cur_sec);
-                        LCD_ShowString(8*5, 16*4, (u8 *) lcd_str, GRAY);
-                    } else {
-                        LCD_ShowString(8*5, 16*4, (u8 *) "      ", GRAY);
+                    if (audio_info->filename[0] != '\0') {
+                        if (audio_info->title[0] != '\0') {
+                            LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, 1, GRAY);
+                            LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, idx_play_count);
+                        } else if (audio_info->filename[0] != '\0') {
+                            LCD_ShowIcon(8*0, 16*0, ICON16x16_FILE, 1, GRAY);
+                            LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, idx_play_count);
+                        }
+                        if (audio_info->artist[0] != '\0') {
+                            LCD_ShowIcon(8*0, 16*1, ICON16x16_ARTIST, 1, GRAY);
+                            LCD_Scroll_ShowString(8*2, 16*1, 8*2, LCD_W-1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, idx_play_count);
+                        }
+                        if (audio_info->album[0] != '\0') {
+                            LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, 1, GRAY);
+                            LCD_Scroll_ShowString(8*2, 16*2, 8*2, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
+                        }
+                        // Level Meter L
+                        LCD_Fill(8*0, 16*3+0, (LCD_W-1)*audio_info->lvl_l/100, 16*3+0 + 4, DARKGRAY);
+                        LCD_Fill((LCD_W-1)*audio_info->lvl_l/100, 16*3+0, LCD_W-1, 16*3+0 + 4, BLACK);
+                        // Level Meter R
+                        LCD_Fill(8*0, 16*3+8, (LCD_W-1)*audio_info->lvl_r/100, 16*3+8 + 4, DARKGRAY);
+                        LCD_Fill((LCD_W-1)*audio_info->lvl_r/100, 16*3+8, LCD_W-1, 16*3+8 + 4, BLACK);
+                        // Progress Bar
+                        if (audio_info->data_size != 0) {
+                            progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
+                            LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
+                            LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
+                        }
+                        // Track Number
+                        if (audio_info->number[0] != '\0') {
+                            LCD_Scroll_ShowString(8*0, 16*4, 8*0, 8*5-1, (u8 *) audio_info->number, GRAY, &sft_num, idx_play_count);
+                        }
+                        // Elapsed Time
+                        cur_min = (audio_info->data_offset/44100/4) / 60;
+                        cur_sec = (audio_info->data_offset/44100/4) % 60;
+                        /*
+                        ttl_min = (audio_info->data_size/44100/4) / 60;
+                        ttl_sec = (audio_info->data_size/44100/4) % 60;
+                        sprintf(lcd_str, "%3d:%02d/%3d:%02d VOL%3d", cur_min, cur_sec, ttl_min, ttl_sec, volume_get());
+                        LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, WHITE);
+                        */
+                        if (!audio_is_pausing() || idx_play_count % 8 < 6) { // Elapsed Time blinks when pausing
+                            sprintf(lcd_str, "%3d:%02d", cur_min, cur_sec);
+                            LCD_ShowString(8*5, 16*4, (u8 *) lcd_str, GRAY);
+                        } else {
+                            LCD_ShowString(8*5, 16*4, (u8 *) "      ", GRAY);
+                        }
                     }
                     // Volume
                     LCD_ShowIcon(8*12, 16*4, ICON16x16_VOLUME, 1, GRAY);
@@ -547,37 +631,13 @@ int main(void)
                 if (idx_idle_count > 100) {
                     file_menu_idle();
                 }
-                if (idx_idle_count > 10 * 60 * 3) { // auto random play in 3 min
-                    stack_count = stack_get_count(stack);
-                    if (stack_count > 0) { // Random Play for same level folder
-                        for (i = 0; i < stack_count; i++) { // chdir to parent directory
-                            if (fs.fs_type == FS_EXFAT) { // This is for FatFs known bug for ".." in EXFAT
-                                file_menu_close_dir();
-                                file_menu_open_dir("/"); // Root directory
-                            } else {
-                                file_menu_ch_dir(0); // ".."
-                            }
-                            stack_pop(stack, &item);
-                        }
-                        for (i = 0; i < stack_count; i++) { // chdir to child directory at random
-                            idx_head = (rand() % (file_menu_get_size() - 1)) + 1;
-                            idx_column = 0;
-                            file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
-                            while (file_menu_is_dir(idx_head+idx_column) <= 0) { // not directory
-                                idx_head = (idx_head < file_menu_get_size() - 1) ? idx_head + 1 : 1;
-                                file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
-                            }
-                            printf("[random_play] dir level: %d, idx: %d, name: %s\n\r", i, idx_head + idx_column, file_menu_get_fname_ptr(idx_head + idx_column));
-                            file_menu_ch_dir(idx_head + idx_column);
-                            item.head = idx_head;
-                            item.column = idx_column;
-                            stack_push(stack, &item);
-                        }
-                        idx_head = 1;
-                        idx_column = 0;
-                        idx_req_open = 1;
-                    }
-                }
+            }
+            if (idx_idle_count < 10 * 60 * 1) {
+                set_backlight_on();
+            } else if (idx_idle_count < 10 * 60 * 3) {
+                set_backlight_dark();
+            } else { // Auto Power-off in 3 min
+                power_off("", 0);
             }
         }
         // Battery

@@ -10,7 +10,7 @@
 #define SAMPLE_RATE     (44100)
 //#define SAMPLE_RATE     (2000)
 
-#define INIT_MUTE_COUNT 25
+#define INIT_MUTE_COUNT 100
 
 // Audio Double Buffer from DMA transfer
 int32_t audio_buf[2][SIZE_OF_SAMPLES];

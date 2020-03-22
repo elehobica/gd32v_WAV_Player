@@ -17,7 +17,7 @@
 
 CONFIGS = {
   _SiPeed_WAV_64GB: [
-    63.5*1000*1000*1000, %w(
+    61.5*1000*1000*1000, %w(
       g:/Data/Media/Audio/*/*
     ), 0
   ]
@@ -65,6 +65,23 @@ def dir_size(path)
   sum
 end
 
+def rm_empty_dir(path)
+  Dir.entries(path).each do |item|
+    next if (/^\.\.?$/ =~ item)
+    if (FileTest.directory?("#{path}/#{item}"))
+      if (Dir.entries("#{path}/#{item}").size <= 2)
+        Dir.rmdir("#{path}/#{item}")
+      else
+        rm_empty_dir("#{path}/#{item}")
+      end
+    end
+  end
+  # after care in case that parent directory gets empty after sub directory is removed
+  if (Dir.entries(path).size <= 2)
+    Dir.rmdir(path)
+  end
+end
+
 ### MAIN ###
 key = '_SiPeed_WAV_64GB'
 config = CONFIGS[key.to_sym]
@@ -72,8 +89,9 @@ cfg_DST_DIR = "d:/Data/Media/#{key}"
 cfg_DST_DIR_MAX_SIZE = config[0]
 cfg_SRC_DIRS = config[1]
 cfg_FLAT_MODE = config[2]
+dst_dirs = Array.new
 
-system("rm -rf #{cfg_DST_DIR}/*")
+#system("rm -rf \"#{cfg_DST_DIR}\"/*")
 
 dirs_flat = Array.new
 cfg_SRC_DIRS.each do |dir|
@@ -95,7 +113,7 @@ dirs_flat.sort{ |a, b|
     File.mtime(bb_mp3_files[0]) <=> File.mtime(aa_mp3_files[0])
   end
 }.each do |dir|
-  new_parent_dir = File.basename(File.dirname(dir))
+  new_parent_dir = cfg_DST_DIR + '/' + File.basename(File.dirname(dir))
   if (cfg_FLAT_MODE == 1)
     src_dir = dir
     dst_dir = new_parent_dir + '-' + File.basename(dir) 
@@ -105,17 +123,40 @@ dirs_flat.sort{ |a, b|
   end
   printf "%s %s\n", src_dir, dst_dir
   STDOUT.flush
-  #system("cp -r \"#{src_dir}\" \"#{cfg_DST_DIR}/#{dst_dir}\"")
-  total_size += get_size(src_dir)
-  make_directory("#{cfg_DST_DIR}/#{dst_dir}")
-   Dir["#{src_dir}/*.mp3"].each do |mp3|
-       wav = File.basename(mp3, ".mp3") + ".wav"
-       system("ffmpeg.exe -i \"#{mp3}\" -vn -ac 2 -acodec pcm_s16le -n -f wav \"#{cfg_DST_DIR}/#{dst_dir}/#{wav}\"")
+  #system("cp -r \"#{src_dir}\" \"#{dst_dir}\"")
+  if (!FileTest.directory?(dst_dir))
+    make_directory(dst_dir)
   end
-   jpgs = Dir["#{src_dir}/*.jpg"]
-   if (jpgs.size > 0)
-       system("python jpg2bin.py \"#{jpgs[0]}\" \"#{cfg_DST_DIR}/#{dst_dir}/cover.bin\"")
-   end
-  break if (dir_size(cfg_DST_DIR) > cfg_DST_DIR_MAX_SIZE)
+  Dir["#{src_dir}/*.mp3"].each do |mp3|
+    wav = File.basename(mp3, ".mp3") + ".wav"
+    if (!FileTest.exist?("#{dst_dir}/#{wav}"))
+        system("ffmpeg.exe -i \"#{mp3}\" -vn -ac 2 -acodec pcm_s16le -n -f wav \"#{dst_dir}/#{wav}\"")
+    end
+  end
+  jpgs = Dir["#{src_dir}/*.jpg"]
+  if (jpgs.size > 0)
+    if (!FileTest.exist?("#{dst_dir}/cover.bin"))
+        system("python jpg2bin.py \"#{jpgs[0]}\" \"#{dst_dir}/cover.bin\"")
+    end
+  end
+  total_size += get_size(dst_dir)
+  if (total_size > cfg_DST_DIR_MAX_SIZE)
+    system("rm -rf \"#{dst_dir}")
+    break
+  end
+  dst_dirs.push(dst_dir)
 end
+
+
+if (cfg_FLAT_MODE == 1)
+  storage_dirs = Dir[cfg_DST_DIR + "/*"]
+else
+  storage_dirs = Dir[cfg_DST_DIR + "/*/*"]
+end
+
+(storage_dirs - dst_dirs).each do |item|
+  system("rm -rf \"#{item}")
+end
+
+rm_empty_dir(cfg_DST_DIR)
 

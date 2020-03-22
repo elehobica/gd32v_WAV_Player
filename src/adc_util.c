@@ -55,6 +55,8 @@ void adc0_init(void)
 uint32_t adc0_get_hp_button(void)
 {
     uint32_t ret;
+    // 3.3V ~ 5.0V both support (high mistake rate)
+    /*
     if (adc0_rdata < 198) { // < 160mV  4095*160/3300 (CENTER)
         ret = HP_BUTTON_CENTER;
     } else if (adc0_rdata >= 223 && adc0_rdata < 384) { // 180mv ~ 310mV (D)
@@ -62,6 +64,19 @@ uint32_t adc0_get_hp_button(void)
     } else if (adc0_rdata >= 384 && adc0_rdata < 645) { // 310mV ~ 520mV (PLUS)
         ret = HP_BUTTON_PLUS;
     } else if (adc0_rdata >= 670 && adc0_rdata < 1116) { // 540mV ~ 900mV (MINUS)
+        ret = HP_BUTTON_MINUS;
+    } else { // others
+        ret = HP_BUTTON_OPEN;
+    }
+    */
+    // 3.3V support
+    if (adc0_rdata < 4095*100/3300) { // < 100mV  4095*100/3300 (CENTER)
+        ret = HP_BUTTON_CENTER;
+    } else if (adc0_rdata >= 4095*142/3300 && adc0_rdata < 4095*238/3300) { // 142mv ~ 238mV (D: 190mV)
+        ret = HP_BUTTON_D;
+    } else if (adc0_rdata >= 4095*240/3300 && adc0_rdata < 4095*400/3300) { // 240mV ~ 400mV (PLUS: 320mV)
+        ret = HP_BUTTON_PLUS;
+    } else if (adc0_rdata >= 4095*435/3300 && adc0_rdata < 4095*725/3300) { // 435mV ~ 725mV (MINUS: 580mV)
         ret = HP_BUTTON_MINUS;
     } else { // others
         ret = HP_BUTTON_OPEN;
@@ -128,29 +143,4 @@ uint16_t adc1_get_bat_x100(void) // outputs 0 ~ 99
         adc_val = adc_val * 100 / (4200-3150);
     }
     return adc_val;
-}
-
-void adc1_init_bak(void)
-{
-    rcu_periph_clock_enable(RCU_GPIOA);
-    gpio_init(GPIOA, GPIO_MODE_AIN, GPIO_OSPEED_50MHZ, GPIO_PIN_3);
-
-    adc_calibration_enable(ADC1);
-
-    RCU_CFG0 |= (0b10 << 14) | (1 << 28); // ADC clock = 108MHz / 8 = 13.5MHz(14MHz max.)
-    rcu_periph_clock_enable(RCU_ADC1);
-    ADC_CTL1(ADC1) |= ADC_CTL1_ADCON;
-}
-
-uint16_t adc1_get_bak(int ch)
-{
-    ADC_RSQ2(ADC1) = 0;
-    ADC_RSQ2(ADC1) = ch;
-    ADC_CTL1(ADC1) |= ADC_CTL1_ADCON;
-
-    while( !(ADC_STAT(ADC1) & ADC_STAT_EOC) );
-
-    uint16_t ret = ADC_RDATA(ADC1) & 0xFFFF;
-    ADC_STAT(ADC1) &= ~ADC_STAT_EOC;
-    return ret;
 }
