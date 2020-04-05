@@ -246,23 +246,6 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 	}
 }
 
-void file_menu_sort_entry(uint16_t scope_start, uint16_t scope_end_1)
-{
-	uint16_t wing;
-	uint16_t wing_start, wing_end_1;
-	if (scope_start >= scope_end_1) return;
-	if (scope_start > max_entry_cnt - 1) scope_start = max_entry_cnt - 1;
-	if (scope_end_1 > max_entry_cnt) scope_end_1 = max_entry_cnt;
-	wing = (scope_end_1 - scope_start)*2;
-	wing_start = (scope_start > wing) ? scope_start - wing : 0;
-	wing = (scope_end_1 - scope_start)*4 - (scope_start - wing_start);
-	wing_end_1 = (scope_end_1 + wing < max_entry_cnt) ? scope_end_1 + wing : max_entry_cnt;
-	//printf("scope_start %d %d %d %d\n\r", scope_start, scope_end_1, wing_start, wing_end_1);
-	if (!get_range_full_sorted(scope_start, scope_end_1)) {
-		idx_qsort_entry_list_by_range(wing_start, wing_end_1, 0, max_entry_cnt);
-	}
-}
-
 static uint16_t idx_get_size(int target)
 {
 	int16_t cnt = 1;
@@ -365,6 +348,23 @@ void file_menu_idle(void)
 	
 	printf("implicit sort %d %d\n\r", r_start, r_end_1);
 	idx_qsort_entry_list_by_range(r_start, r_end_1, 0, max_entry_cnt);
+}
+
+void file_menu_sort_entry(uint16_t scope_start, uint16_t scope_end_1)
+{
+	uint16_t wing;
+	uint16_t wing_start, wing_end_1;
+	if (scope_start >= scope_end_1) return;
+	if (scope_start > max_entry_cnt - 1) scope_start = max_entry_cnt - 1;
+	if (scope_end_1 > max_entry_cnt) scope_end_1 = max_entry_cnt;
+	wing = (scope_end_1 - scope_start)*2;
+	wing_start = (scope_start > wing) ? scope_start - wing : 0;
+	wing = (scope_end_1 - scope_start)*4 - (scope_start - wing_start);
+	wing_end_1 = (scope_end_1 + wing < max_entry_cnt) ? scope_end_1 + wing : max_entry_cnt;
+	//printf("scope_start %d %d %d %d\n\r", scope_start, scope_end_1, wing_start, wing_end_1);
+	if (!get_range_full_sorted(scope_start, scope_end_1)) {
+		idx_qsort_entry_list_by_range(wing_start, wing_end_1, 0, max_entry_cnt);
+	}
 }
 
 void file_menu_full_sort(void)

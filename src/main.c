@@ -8,9 +8,20 @@
 #include "adc_util.h"
 #include "fifo/stack.h"
 
-#define FLASH_PAGE127   (FLASH_BASE + 0x400*127)
-#define CFG_VERSION     (FLASH_PAGE127 + 0x380)
-#define CFG_VOLUME      (FLASH_PAGE127 + 0x384)
+#define NUM_BTN_HISTORY     30
+#define FLASH_PAGE127       (FLASH_BASE + 0x400*127)
+#define CFG_VERSION         (FLASH_PAGE127 + 0x380)
+#define CFG_VOLUME          (FLASH_PAGE127 + 0x384)
+#define CFG_STACK_COUNT     (FLASH_PAGE127 + 0x388)
+#define CFG_STACK_DATA0     (FLASH_PAGE127 + 0x38c)
+#define CFG_STACK_DATA1     (FLASH_PAGE127 + 0x390)
+#define CFG_STACK_DATA2     (FLASH_PAGE127 + 0x394)
+#define CFG_STACK_DATA3     (FLASH_PAGE127 + 0x398)
+#define CFG_STACK_DATA4     (FLASH_PAGE127 + 0x39c)
+#define CFG_IDX             (FLASH_PAGE127 + 0x3a0)
+#define CFG_MODE            (FLASH_PAGE127 + 0x3a4)
+#define CFG_DATA_OFFSET     (FLASH_PAGE127 + 0x3a8)
+#define CFG32(x)            REG32(x)
 
 int version;
 unsigned char image[160*80*2/2];
@@ -35,12 +46,22 @@ uint32_t idx_play_count = 0;
 int cover_exists = 0;
 uint32_t data_offset_prv = 0;
 
-uint32_t button_prv = HP_BUTTON_OPEN;
+uint32_t button_prv[NUM_BTN_HISTORY] = {}; // initialized as HP_BUTTON_OPEN
 uint32_t button_repeat_count = 0;
+stack_t *stack; // for change directory history
 
 void idx_open(void)
 {
     if (idx_req_open != 1) {
+        idx_req_open = 1;
+    }
+}
+
+void idx_close(void)
+{
+    if (idx_req_open != 1) {
+        idx_column = 0;
+        idx_head = 0;
         idx_req_open = 1;
     }
 }
@@ -157,19 +178,28 @@ void tick_10ms(void)
 void power_off(char *msg, int is_error)
 {
     int i;
+    stack_data_t item;
     // save flash config
     unsigned int *data = (unsigned int *) image;
     for (i = 0; i < 1024 - 128; i += 4) {
-        data[i] = REG32(FLASH_PAGE127 + i);
+        data[i/4] = CFG32(FLASH_PAGE127 + i);
     }
     fmc_unlock();
     fmc_page_erase(FLASH_PAGE127);
     for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
-        fmc_word_program(FLASH_PAGE127 + i, data[i]);
+        fmc_word_program(FLASH_PAGE127 + i, data[i/4]);
     }
-    // flash config initial values
+    // flash config
     fmc_word_program(CFG_VERSION, version);
     fmc_word_program(CFG_VOLUME, volume_get());
+    fmc_word_program(CFG_STACK_COUNT, stack_get_count(stack));
+    for (i = 0; i < CFG32(CFG_STACK_COUNT); i++) {
+        stack_pop(stack, &item);
+        fmc_word_program(CFG_STACK_DATA0 + i*4, ((uint32_t) item.column << 16) | (uint32_t) item.head);
+    }
+    fmc_word_program(CFG_IDX, ((uint32_t) idx_column << 16) | (uint32_t) idx_head);
+    fmc_word_program(CFG_MODE, mode);
+    fmc_word_program(CFG_DATA_OFFSET, audio_get_info()->data_offset);
     fmc_lock();
     printf("Saved flash config\n\r");
             
@@ -196,20 +226,60 @@ void power_off(char *msg, int is_error)
     //eclic_system_reset();
 }
 
+int count_center_clicks(void)
+{
+    int i;
+    int detected_fall = 0;
+    int count = 0;
+    for (i = 0; i < 4; i++) {
+        if (button_prv[i] != HP_BUTTON_OPEN) {
+            return 0;
+        }
+    }
+    for (i = 4; i < NUM_BTN_HISTORY; i++) {
+        if (detected_fall == 0 && button_prv[i-1] == HP_BUTTON_OPEN && button_prv[i] == HP_BUTTON_CENTER) {
+            detected_fall = 1;
+        } else if (detected_fall == 1 && button_prv[i-1] == HP_BUTTON_CENTER && button_prv[i] == HP_BUTTON_OPEN) {
+            count++;
+            detected_fall = 0;
+        }
+    }
+    if (count > 0) {
+        for (i = 0; i < NUM_BTN_HISTORY; i++) button_prv[i] = HP_BUTTON_OPEN;
+    }
+    return count;
+}
+
 void tick_100ms(void)
 {
+    int i;
+    int center_clicks;
+    // Center Button: event timing is at button release
+    // Other Buttons: event timing is at button push
     uint32_t button = adc0_get_hp_button();
     if (button == HP_BUTTON_OPEN) {
         button_repeat_count = 0;
-    //} else if (button != button_prv) {
-    } else if (button_prv == HP_BUTTON_OPEN) { // push
-        if (button == HP_BUTTON_CENTER) {
+        center_clicks = count_center_clicks(); // must be called once per tick because button_prv[] status has changed
+        if (center_clicks > 0) {
+            printf("clicks =  %d\n\r", center_clicks);
             if (mode == FileView) {
-                idx_open();
+                if (center_clicks == 1) {
+                    idx_open();
+                } else if (center_clicks == 2) {
+                    idx_close();
+                } else if (center_clicks == 3) {
+                    idx_random_open();
+                }
             } else if (mode == Play) {
-                aud_pause();
+                if (center_clicks == 1) {
+                    aud_pause();
+                } else if (center_clicks == 2) {
+                    aud_stop();
+                }
             }
-        } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
+        }
+    } else if (button_prv[0] == HP_BUTTON_OPEN) { // push
+        if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
                 idx_dec();
             } else if (mode == Play) {
@@ -224,10 +294,7 @@ void tick_100ms(void)
         }
     } else if (button_repeat_count == 10) { // long push
         if (button == HP_BUTTON_CENTER) {
-            if (mode == Play) {
-                aud_stop();
-            }
-            button_repeat_count++; // only once
+            button_repeat_count++; // only once and step to longer push event
         } else if (button == HP_BUTTON_D || button == HP_BUTTON_PLUS) {
             if (mode == FileView) {
                 idx_fast_dec();
@@ -243,26 +310,27 @@ void tick_100ms(void)
         }
     } else if (button_repeat_count == 30) { // long long push
         if (button == HP_BUTTON_CENTER) {
-            idx_random_open();
-        }
-        button_repeat_count++; // only once
-    } else if (button_repeat_count == 120) { // long long long push
-        if (button == HP_BUTTON_CENTER) {
             power_off("", 0);
         }
-        button_repeat_count++; // only once
-    } else if (button == button_prv) {
+        button_repeat_count++; // only once and step to longer push event
+    } else if (button == button_prv[0]) {
         button_repeat_count++;
     }
-    button_prv = button;
+    // Button status shift
+    for (i = NUM_BTN_HISTORY-1; i >= 0; i--) {
+        button_prv[i+1] = button_prv[i];
+    }
+    button_prv[0] = button;
 }
 
 void tick_1sec(void)
 {
     LEDG(0);
     if (count_sec > 5) {
-        // Battery value update
-        bat_lvl = adc1_get_bat_x100();
+        if (count_sec % 20 == 6) {
+            // Battery value update
+            bat_lvl = adc1_get_bat_x100();
+        }
     } else {
         adc1_get_bat_x100();
     }
@@ -285,13 +353,20 @@ void TIMER0_UP_IRQHandler(void)
 void show_battery(uint16_t x, uint16_t y)
 {
     uint16_t color;
-    if (bat_lvl >= 80) {
+    if (bat_lvl >= 40) {
         color = 0x0600;
-    } else if (bat_lvl < 20) {
+    } else if (bat_lvl >= 10) {
+        color = 0xc600;
+    } else {
         color = 0xc000;
-    } else { // if under 80%, gradation from green (0x0600: 80%) to red (0xc000: 0%)
+    }
+    /*
+    // gradation from 20% ~ 80%
+    {
+        // if under 80%, gradation from green (0x0600: 80%) to red (0xc000: 20%)
         color = (((0x18 * (60 - (bat_lvl-20)) / 60) & 0x1f) << 11) | (((0x30 * (bat_lvl-20) / 60) & 0x3f) << 5);
     }
+    */
     LCD_ShowIcon(x, y, ICON16x16_BATTERY, 1, color);
     if (bat_lvl/10 < 9) {
         LCD_Fill(x+4, y+4, x+11, y+13-bat_lvl/10-1, BLACK);
@@ -326,7 +401,6 @@ int main(void)
     FRESULT fr;     /* FatFs return code */
     UINT br;
     char lcd_str[8];
-    stack_t *stack;
     stack_data_t item;
     int stack_count;
     int i;
@@ -357,26 +431,7 @@ int main(void)
     */
 
     init_uart0();
-
-    // Flash
-    version = REG32(CFG_VERSION);
-    if (version == 0xffffffff) { // if no history written
-        printf("Initialize flash config\n\r");
-        unsigned int *data = (unsigned int *) image;
-        for (i = 0; i < 1024 - 128; i += 4) {
-            data[i] = REG32(FLASH_PAGE127 + i);
-        }
-        fmc_unlock();
-        fmc_page_erase(FLASH_PAGE127);
-        for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
-            fmc_word_program(FLASH_PAGE127 + i, data[i]);
-        }
-        // flash config initial values
-        fmc_word_program(CFG_VERSION, 100);
-        fmc_word_program(CFG_VOLUME, 65);
-        fmc_lock();
-    }
-    volume_set(REG32(CFG_VOLUME));
+    printf("\n\r");
 
     // init OLED
     Lcd_Init();
@@ -395,10 +450,43 @@ int main(void)
     rcu_periph_clock_enable(RCU_GPIOC);
     gpio_init(GPIOC, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_14);
     PC_OUT(14, 1);
+    button_repeat_count = 100; // longer than longest push event to avoid more push event
 
     adc0_init();
     adc1_init();
-    timer_irq_init();
+
+    // Flash config load
+    version = CFG32(CFG_VERSION);
+    if (version == 0xffffffff) { // if no history written
+        printf("Initialize flash config\n\r");
+        unsigned int *data = (unsigned int *) image;
+        for (i = 0; i < 1024 - 128; i += 4) {
+            data[i/4] = CFG32(FLASH_PAGE127 + i);
+        }
+        fmc_unlock();
+        fmc_page_erase(FLASH_PAGE127);
+        for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
+            fmc_word_program(FLASH_PAGE127 + i, data[i/4]);
+        }
+        // flash config initial values
+        fmc_word_program(CFG_VERSION, 100);
+        fmc_word_program(CFG_VOLUME, 65);
+        fmc_word_program(CFG_STACK_COUNT, 0);
+        fmc_word_program(CFG_STACK_DATA0, 0);
+        fmc_word_program(CFG_STACK_DATA1, 0);
+        fmc_word_program(CFG_STACK_DATA2, 0);
+        fmc_word_program(CFG_STACK_DATA3, 0);
+        fmc_word_program(CFG_STACK_DATA4, 0);
+        fmc_word_program(CFG_IDX, 0);
+        fmc_word_program(CFG_MODE, FileView);
+        fmc_word_program(CFG_DATA_OFFSET, 0);
+        fmc_lock();
+    } else {
+        for (i = 0; i < 128; i += 4) {
+            printf("CFG[%d] = 0x%08x\n\r", i/4, (int) CFG32(CFG_VERSION + i));
+        }
+    }
+    volume_set(CFG32(CFG_VOLUME));
 
     // Mount FAT
     fr = f_mount(&fs, "", 1); // 0: mount successful ; 1: mount failed
@@ -412,7 +500,9 @@ int main(void)
         power_off("No Card Found!", 1);
     }
 
-    printf("Longan Player ver %d.%02d\n\r", (int) REG32(CFG_VERSION)/100, (int) REG32(CFG_VERSION)%100);
+    timer_irq_init();
+
+    printf("Longan Player ver %d.%02d\n\r", (int) CFG32(CFG_VERSION)/100, (int) CFG32(CFG_VERSION)%100);
     printf("SD Card File System = %d\n\r", fs.fs_type); // FS_EXFAT = 4
 
     // Opening Logo
@@ -447,6 +537,28 @@ int main(void)
     // Search Directories / Files
     stack = stack_init();
     file_menu_open_dir("/");
+    // Restore power off situation (directory, mode, data_offset)
+    if (CFG32(CFG_STACK_COUNT) > 0) {
+        for (i = CFG32(CFG_STACK_COUNT) - 1; i >= 0; i--) {
+            item.head = CFG32(CFG_STACK_DATA0 + i*4) & 0xffff;
+            item.column = (CFG32(CFG_STACK_DATA0 + i*4) >> 16) & 0xffff;
+            file_menu_sort_entry(item.head+item.column, item.head+item.column + 1);
+            if (file_menu_is_dir(item.head+item.column) <= 0 || item.head+item.column == 0) { // Not Directory or Parent Directory
+                break;
+            }
+            stack_push(stack, &item);
+            file_menu_ch_dir(item.head+item.column);
+        }
+    }
+    idx_head = CFG32(CFG_IDX) & 0xffff;
+    idx_column = (CFG32(CFG_IDX) >> 16) & 0xffff;
+    mode = CFG32(CFG_MODE);
+    if (mode == Play) {
+        idx_req_open = 1;
+        audio_set_data_offset(CFG32(CFG_DATA_OFFSET));
+    }
+
+    // main loop
     for (;;) {
         if (aud_req == 1) {
             audio_pause();
@@ -515,7 +627,7 @@ int main(void)
                 idx_idle_count = 0;
             }
             idx_req_open = 0;
-        } else if (idx_req_open == 2) {
+        } else if (idx_req_open == 2) { // Random Play
             if (!audio_is_playing_or_pausing()) {
                 audio_stop();
             }
@@ -533,10 +645,10 @@ int main(void)
                 for (i = 0; i < stack_count; i++) { // chdir to child directory at random
                     idx_head = (rand() % (file_menu_get_size() - 1)) + 1;
                     idx_column = 0;
-                    file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
+                    file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column + 1);
                     while (file_menu_is_dir(idx_head+idx_column) <= 0) { // not directory
                         idx_head = (idx_head < file_menu_get_size() - 1) ? idx_head + 1 : 1;
-                        file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column);
+                        file_menu_sort_entry(idx_head + idx_column, idx_head + idx_column + 1);
                     }
                     printf("[random_play] dir level: %d, idx: %d, name: %s\n\r", i, idx_head + idx_column, file_menu_get_fname_ptr(idx_head + idx_column));
                     file_menu_ch_dir(idx_head + idx_column);

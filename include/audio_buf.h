@@ -19,6 +19,7 @@ typedef struct {
     uint32_t lvl_r;
 } audio_info_type;
 
+void audio_set_data_offset(uint32_t data_ofs);
 void audio_init(void);
 void audio_play(uint16_t idx);
 void audio_pause(void);

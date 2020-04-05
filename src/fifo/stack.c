@@ -14,7 +14,7 @@ stack_t* stack_init()
 
 int stack_push(stack_t *pStack, stack_data_t *item)
 {
-	if (pStack->tail >= SIZE - 1) {
+	if (pStack->tail >= STACK_SIZE - 1) {
 		return 0;
 	} else {
 		pStack->tail++;

@@ -26,6 +26,7 @@ uint16_t idx_play;
 int next_is_end = 0;
 int playing = 0;
 int pausing = 0;
+uint32_t data_offset = 0;
 
 static int volume = 65; // 0 ~ 100;
 
@@ -160,7 +161,11 @@ static int load_next_file(void)
     audio_info.data_size = size;
     //printf("size = %d\n\r", (int) audio_info.data_size);
     audio_info.data_start = offset;
-    audio_info.data_offset = 0;
+    audio_info.data_offset = data_offset;
+    if (data_offset > 0) {
+        f_lseek(&fil, offset + data_offset);
+    }
+    data_offset = 0; // data_offset applied first file only
     return 1;
 }
 
@@ -242,6 +247,11 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
     audio_info.lvl_r = get_level(lvl_r/(number/4));
     *trans_number = number;
     return next_is_end;
+}
+
+void audio_set_data_offset(uint32_t data_ofs)
+{
+    data_offset = data_ofs;
 }
 
 void audio_init(void)
