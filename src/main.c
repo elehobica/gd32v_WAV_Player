@@ -8,6 +8,11 @@
 #include "adc_util.h"
 #include "fifo/stack.h"
 
+#define FLASH_PAGE127   (FLASH_BASE + 0x400*127)
+#define CFG_VERSION     (FLASH_PAGE127 + 0x380)
+#define CFG_VOLUME      (FLASH_PAGE127 + 0x384)
+
+int version;
 unsigned char image[160*80*2/2];
 uint32_t count10ms = 0;
 uint32_t count_sec = 0;
@@ -152,6 +157,23 @@ void tick_10ms(void)
 void power_off(char *msg, int is_error)
 {
     int i;
+    // save flash config
+    unsigned int *data = (unsigned int *) image;
+    for (i = 0; i < 1024 - 128; i += 4) {
+        data[i] = REG32(FLASH_PAGE127 + i);
+    }
+    fmc_unlock();
+    fmc_page_erase(FLASH_PAGE127);
+    for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
+        fmc_word_program(FLASH_PAGE127 + i, data[i]);
+    }
+    // flash config initial values
+    fmc_word_program(CFG_VERSION, version);
+    fmc_word_program(CFG_VOLUME, volume_get());
+    fmc_lock();
+    printf("Saved flash config\n\r");
+            
+    // LED signal
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
     if (is_error) {
@@ -336,6 +358,26 @@ int main(void)
 
     init_uart0();
 
+    // Flash
+    version = REG32(CFG_VERSION);
+    if (version == 0xffffffff) { // if no history written
+        printf("Initialize flash config\n\r");
+        unsigned int *data = (unsigned int *) image;
+        for (i = 0; i < 1024 - 128; i += 4) {
+            data[i] = REG32(FLASH_PAGE127 + i);
+        }
+        fmc_unlock();
+        fmc_page_erase(FLASH_PAGE127);
+        for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
+            fmc_word_program(FLASH_PAGE127 + i, data[i]);
+        }
+        // flash config initial values
+        fmc_word_program(CFG_VERSION, 100);
+        fmc_word_program(CFG_VOLUME, 65);
+        fmc_lock();
+    }
+    volume_set(REG32(CFG_VOLUME));
+
     // init OLED
     Lcd_Init();
     LCD_Clear(BLACK);
@@ -370,7 +412,7 @@ int main(void)
         power_off("No Card Found!", 1);
     }
 
-    printf("Longan Player ver 1.00\n\r");
+    printf("Longan Player ver %d.%02d\n\r", (int) REG32(CFG_VERSION)/100, (int) REG32(CFG_VERSION)%100);
     printf("SD Card File System = %d\n\r", fs.fs_type); // FS_EXFAT = 4
 
     // Opening Logo

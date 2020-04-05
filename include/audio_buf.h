@@ -28,6 +28,7 @@ int audio_is_pausing(void);
 const audio_info_type *audio_get_info(void);
 void volume_up(void);
 void volume_down(void);
+void volume_set(int val);
 int volume_get(void);
 
 #endif

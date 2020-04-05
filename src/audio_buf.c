@@ -344,6 +344,11 @@ void volume_down(void)
     if (volume > 0) volume--;
 }
 
+void volume_set(int val)
+{
+    volume = val;
+}
+
 int volume_get(void)
 {
     return volume;
