@@ -22,10 +22,11 @@ static int count = 0;
 FIL fil;
 audio_info_type audio_info;
 int32_t dma_trans_number;
-uint16_t idx_play;
+uint16_t idx_play = 0;
 int next_is_end = 0;
 int playing = 0;
 int pausing = 0;
+int finished = 0; // means the player has finished to play whole files in the folder (by not stop)
 uint32_t data_offset = 0;
 
 static int volume = 65; // 0 ~ 100;
@@ -166,6 +167,7 @@ static int load_next_file(void)
         f_lseek(&fil, offset + data_offset);
     }
     data_offset = 0; // data_offset applied first file only
+
     return 1;
 }
 
@@ -289,6 +291,7 @@ void audio_play(uint16_t idx)
     count = 0;
     playing = 1;
     pausing = 0;
+    finished = 0;
     next_is_end = 0;
 }
 
@@ -318,6 +321,7 @@ void DMA1_Channel1_IRQHandler(void)
     if (next_is_end) {
         playing = 0;
         pausing = 0;
+        finished = 1;
         return;
     }
     LEDB(0);
@@ -337,6 +341,16 @@ int audio_is_playing_or_pausing(void)
 int audio_is_pausing(void)
 {
     return pausing;
+}
+
+int audio_finished(void)
+{
+    return finished;
+}
+
+uint16_t audio_get_idx_play(void)
+{
+    return idx_play;
 }
 
 const audio_info_type *audio_get_info(void)

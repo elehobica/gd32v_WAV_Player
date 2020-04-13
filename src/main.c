@@ -20,7 +20,8 @@
 #define CFG_STACK_DATA4     (FLASH_PAGE127 + 0x39c)
 #define CFG_IDX             (FLASH_PAGE127 + 0x3a0)
 #define CFG_MODE            (FLASH_PAGE127 + 0x3a4)
-#define CFG_DATA_OFFSET     (FLASH_PAGE127 + 0x3a8)
+#define CFG_IDX_PLAY        (FLASH_PAGE127 + 0x3a8)
+#define CFG_DATA_OFFSET     (FLASH_PAGE127 + 0x3ac)
 #define CFG32(x)            REG32(x)
 
 int version;
@@ -180,29 +181,37 @@ void power_off(char *msg, int is_error)
     int i;
     stack_data_t item;
     // save flash config
-    unsigned int *data = (unsigned int *) image;
-    for (i = 0; i < 1024 - 128; i += 4) {
-        data[i/4] = CFG32(FLASH_PAGE127 + i);
+    if (!is_error) {
+        unsigned int *data = (unsigned int *) image;
+        for (i = 0; i < 1024 - 128; i += 4) {
+            data[i/4] = CFG32(FLASH_PAGE127 + i);
+        }
+        fmc_unlock();
+        fmc_page_erase(FLASH_PAGE127);
+        for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
+            fmc_word_program(FLASH_PAGE127 + i, data[i/4]);
+        }
+        // flash config
+        fmc_word_program(CFG_VERSION, version);
+        fmc_word_program(CFG_VOLUME, volume_get());
+        fmc_word_program(CFG_STACK_COUNT, stack_get_count(stack));
+        for (i = 0; i < CFG32(CFG_STACK_COUNT); i++) {
+            stack_pop(stack, &item);
+            fmc_word_program(CFG_STACK_DATA0 + i*4, ((uint32_t) item.column << 16) | (uint32_t) item.head);
+        }
+        fmc_word_program(CFG_IDX, ((uint32_t) idx_column << 16) | (uint32_t) idx_head);
+        fmc_word_program(CFG_MODE, mode);
+        fmc_word_program(CFG_IDX_PLAY, audio_get_idx_play());
+        fmc_word_program(CFG_DATA_OFFSET, audio_get_info()->data_offset);
+        fmc_lock();
+        printf("Saved flash config\n\r");
     }
-    fmc_unlock();
-    fmc_page_erase(FLASH_PAGE127);
-    for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
-        fmc_word_program(FLASH_PAGE127 + i, data[i/4]);
-    }
-    // flash config
-    fmc_word_program(CFG_VERSION, version);
-    fmc_word_program(CFG_VOLUME, volume_get());
-    fmc_word_program(CFG_STACK_COUNT, stack_get_count(stack));
-    for (i = 0; i < CFG32(CFG_STACK_COUNT); i++) {
-        stack_pop(stack, &item);
-        fmc_word_program(CFG_STACK_DATA0 + i*4, ((uint32_t) item.column << 16) | (uint32_t) item.head);
-    }
-    fmc_word_program(CFG_IDX, ((uint32_t) idx_column << 16) | (uint32_t) idx_head);
-    fmc_word_program(CFG_MODE, mode);
-    fmc_word_program(CFG_DATA_OFFSET, audio_get_info()->data_offset);
-    fmc_lock();
-    printf("Saved flash config\n\r");
-            
+
+    // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
+    rcu_periph_clock_enable(RCU_GPIOB);
+    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
+    PB_OUT(6, 0);
+
     // LED signal
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
@@ -212,14 +221,21 @@ void power_off(char *msg, int is_error)
         LCD_ShowString(24, 32, (u8 *)(msg), BRED);
         LCD_ShowString(24, 48, (u8 *)(msg), GBLUE);
         LCD_ShowString(24, 64, (u8 *)(msg), RED);
+        /*
         for (i = 0; i < 10; i++) {
             LEDR_TOG;
-            delay_1ms(200);
             LEDG_TOG;
             delay_1ms(200);
             LEDB_TOG;
             delay_1ms(200);
         }
+        */
+        // LED Red Light
+        LEDR(0);
+        delay_1ms(1000);
+    } else {
+        // LED Green Light
+        LEDG(0);
     }
     PC_OUT(14, 0); // Power Off
     while (1);
@@ -405,6 +421,7 @@ int main(void)
     int stack_count;
     int i;
     uint16_t progress;
+    uint16_t idx_play = 0;
     const audio_info_type *audio_info;
     uint8_t cur_min, cur_sec;
     //uint8_t ttl_min, ttl_sec;
@@ -412,6 +429,11 @@ int main(void)
     uint16_t sft_art = 0;
     uint16_t sft_alb = 0;
     uint16_t sft_num = 0;
+
+    // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
+    rcu_periph_clock_enable(RCU_GPIOB);
+    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
+    PB_OUT(6, 0);
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -479,6 +501,7 @@ int main(void)
         fmc_word_program(CFG_STACK_DATA4, 0);
         fmc_word_program(CFG_IDX, 0);
         fmc_word_program(CFG_MODE, FileView);
+        fmc_word_program(CFG_IDX_PLAY, 0);
         fmc_word_program(CFG_DATA_OFFSET, 0);
         fmc_lock();
     } else {
@@ -525,10 +548,12 @@ int main(void)
     gpio_init(GPIOA, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_8);
     rcu_ckout0_config(RCU_CKOUT0SRC_CKPLL2_DIV2);
 
+    /*
     // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
     rcu_periph_clock_enable(RCU_GPIOB);
     gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
     PB_OUT(6, 1);
+    */
 
     // Random Seed
     printf("Random seed = %d\n\r", i = adc0_get_raw_data() * adc0_get_raw_data() - adc0_get_raw_data());
@@ -537,6 +562,9 @@ int main(void)
     // Search Directories / Files
     stack = stack_init();
     file_menu_open_dir("/");
+    if (file_menu_get_size() <= 1) {
+        power_off("Card Read Error!", 1);
+    }
     // Restore power off situation (directory, mode, data_offset)
     if (CFG32(CFG_STACK_COUNT) > 0) {
         for (i = CFG32(CFG_STACK_COUNT) - 1; i >= 0; i--) {
@@ -555,6 +583,7 @@ int main(void)
     mode = CFG32(CFG_MODE);
     if (mode == Play) {
         idx_req_open = 1;
+        idx_play = CFG32(CFG_IDX_PLAY);
         audio_set_data_offset(CFG32(CFG_DATA_OFFSET));
     }
 
@@ -606,6 +635,12 @@ int main(void)
                 idx_req = 1;
             } else { // File
                 file_menu_full_sort();
+
+                // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
+                rcu_periph_clock_enable(RCU_GPIOB);
+                gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
+                PB_OUT(6, 1);
+
                 // After audio_init(), Never call file_menu_xxx() functions!
                 // Otherwise, it causes conflict between main and int routine
                 audio_init();
@@ -622,7 +657,11 @@ int main(void)
                 }
                 LCD_Clear(BLACK);
                 BACK_COLOR=BLACK;
-                audio_play(idx_head + idx_column);
+                if (idx_play > 1) {
+                    audio_play(idx_play - 1);
+                } else {
+                    audio_play(idx_head + idx_column);
+                }
                 idx_play_count = 0;
                 idx_idle_count = 0;
             }
@@ -780,20 +819,30 @@ int main(void)
                     LCD_ShowDimPicture(80,0,80+79,79, 48);
                 }
                 idx_play_count++;
-            } else {
+                if (idx_idle_count < 10 * 60 * 1) {
+                    set_backlight_on();
+                } else if (idx_idle_count < 10 * 60 * 3) {
+                    set_backlight_dark();
+                } else { // Auto Power-off in 3 min
+                    power_off("", 0);
+                }
+            } else { // if (mode == FileView)
                 idx_idle_count++;
                 if (idx_idle_count > 100) {
                     file_menu_idle();
                 }
-            }
-            if (idx_idle_count < 10 * 60 * 1) {
-                set_backlight_on();
-            } else if (idx_idle_count < 10 * 60 * 3) {
-                set_backlight_dark();
-            } else { // Auto Power-off in 3 min
-                power_off("", 0);
+                if (idx_idle_count < 10 * 60 * 1) {
+                    set_backlight_on();
+                } else if (stack_get_count(stack) > 0 && audio_finished()) { // Random Play in 1 min if previous play finished with folder through
+                    idx_random_open();
+                } else if (idx_idle_count < 10 * 60 * 3) {
+                    set_backlight_dark();
+                } else { // Auto Power-off in 3 min
+                    power_off("", 0);
+                }
             }
         }
+        idx_play = 0;
         // Battery
         show_battery(8*18, 16*4);
         delay_1ms(100);
