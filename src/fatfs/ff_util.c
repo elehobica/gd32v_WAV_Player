@@ -139,6 +139,8 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 	int result;
 	int start_next;
 	int end_1_next;
+	char *fno_ptr;
+	char *fno_temp_ptr;
 	if (r_start < start) r_start = start;
 	if (r_end_1 > end_1) r_end_1 = end_1;
 	if (get_range_full_sorted(r_start, r_end_1)) return;
@@ -182,7 +184,9 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 			// full name compare
 			idx_f_stat(entry_list[start], &fno);
 			idx_f_stat(entry_list[start+1], &fno_temp);
-			result = my_strcmp(fno.fname, fno_temp.fname);
+			fno_ptr = (strncmp(fno.fname, "The ", 4) == 0) ? &fno.fname[4] : fno.fname;
+			fno_temp_ptr = (strncmp(fno_temp.fname, "The ", 4) == 0) ? &fno_temp.fname[4] : fno_temp.fname;
+			result = my_strcmp(fno_ptr, fno_temp_ptr);
 			if (result >= 0) {
 				idx_entry_swap(start, start+1);
 			}
@@ -209,7 +213,9 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 			} else {
 				// full name compare
 				idx_f_stat(entry_list[top], &fno);
-				result = my_strcmp(fno.fname, fno_temp.fname);
+				fno_ptr = (strncmp(fno.fname, "The ", 4) == 0) ? &fno.fname[4] : fno.fname;
+				fno_temp_ptr = (strncmp(fno_temp.fname, "The ", 4) == 0) ? &fno_temp.fname[4] : fno_temp.fname;
+				result = my_strcmp(fno_ptr, fno_temp_ptr);
 				if (result < 0) {
 					top++;
 				} else {
@@ -286,8 +292,14 @@ static void idx_sort_new(void)
 	for (i = 0; i < max_entry_cnt; i++) {
 		idx_f_stat(i, &fno);
 		if (!(fno.fattrib & AM_DIR)) set_is_file(i);
-		for (k = 0; k < FFL_SZ; k++) {
-			fast_fname_list[i][k] = fno.fname[k];
+		if (strncmp(fno.fname, "The ", 4) == 0) {
+			for (k = 0; k < FFL_SZ; k++) {
+				fast_fname_list[i][k] = fno.fname[k+4];
+			}
+		} else {
+			for (k = 0; k < FFL_SZ; k++) {
+				fast_fname_list[i][k] = fno.fname[k];
+			}
 		}
 		/*
 		char temp_str[5] = "    ";
