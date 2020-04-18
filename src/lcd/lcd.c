@@ -2,7 +2,8 @@
 #include "lcd/oledfont.h"
 #include "lcd/bmp.h"
 u16 BACK_COLOR;   //背景色
-
+extern unsigned char *image0; // 80*80*70
+extern unsigned char *image1; // 80*80*70
 
 /******************************************************************************
       函数说明：LCD串行数据写入函数
@@ -354,7 +355,7 @@ void LCD_Clear(u16 Color)
 	  }
 }
 
-
+#if 0
 /******************************************************************************
       函数说明：LCD显示汉字
       入口数据：x,y   起始坐标
@@ -387,6 +388,7 @@ void LCD_ShowChinese(u16 x,u16 y,u8 index,u8 size,u16 color)
 		temp++;
 	 }
 }
+#endif
 
 
 /******************************************************************************
@@ -653,18 +655,20 @@ void LCD_ShowNum1(u16 x,u16 y,float num,u8 len,u16 color)
       入口数据：x,y    起点坐标
       返回值：  无
 ******************************************************************************/
-void LCD_ShowPicture(u16 x1,u16 y1,u16 x2,u16 y2)
+void LCD_ShowPicture(u16 x1, u16 y1, u16 x2, u16 y2)
 {
 	int i;
 	LCD_Address_Set(x1,y1,x2,y2);
-	for(i=0;i<12800;i++)
-	{ 	
-		// LCD_WR_DATA8(image[i*2+1]);
-		LCD_WR_DATA8(image[i]);
+	for (i=0; i < (x2-x1+1)*(y2-y1+1)*2; i++) {
+		if (i < 80*70*2) {
+			LCD_WR_DATA8(image0[i]);
+		} else {
+			LCD_WR_DATA8(image1[i-80*70*2]);
+		}
 	}			
 }
 
-
+#if 0
 void LCD_ShowLogo(void)
 {
 	int i;
@@ -674,4 +678,5 @@ void LCD_ShowLogo(void)
 		LCD_WR_DATA8(logo_bmp[i]);
 	}			
 }
+#endif
 

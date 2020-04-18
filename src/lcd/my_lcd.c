@@ -2,6 +2,8 @@
 #include "lcd/iconfont.h"
 
 extern const u8 asc2_1608[1520];
+extern unsigned char *image0; // 80*80*70
+extern unsigned char *image1; // 80*80*70
 
 // Show 16x16 ICON
 // mode: 0: non-overlay, 1: overlay
@@ -156,15 +158,18 @@ void LCD_Scroll_ShowString(u16 x, u16 y, u16 x_min, u16 x_max, u8 *p, u16 color,
 }
 
 // dim: 0(dark) ~ 255(original)
-void LCD_ShowDimPicture(u16 x1,u16 y1,u16 x2,u16 y2, u8 dim)
+void LCD_ShowDimPicture(u16 x1, u16 y1, u16 x2, u16 y2, u8 dim)
 {
 	int i;
 	LCD_Address_Set(x1,y1,x2,y2);
 	u16 val;
 	u16 r, g, b;
-	for(i=0;i<12800;i+=2)
-	{
-		val = ((u16) image[i] << 8) | ((u16) image[i+1]);
+	for (i=0; i < (x2-x1+1)*(y2-y1+1)*2; i+=2) {
+		if (i < 80*70*2) {
+			val = ((u16) image0[i] << 8) | ((u16) image0[i+1]);
+		} else {
+			val = ((u16) image1[i-80*70*2] << 8) | ((u16) image1[i+1-80*70*2]);
+		}
 		r = (u16) ((((u32) val & 0xf800) * dim / 255) & 0xf800);
 		g = (u16) ((((u32) val & 0x07e0) * dim / 255) & 0x07e0);
 		b = (u16) ((((u32) val & 0x001f) * dim / 255) & 0x001f);

@@ -8,7 +8,7 @@
 #define HP_BUTTON_MINUS    4
 
 void adc0_init(void);
-uint32_t adc0_get_hp_button(void);
+uint8_t adc0_get_hp_button(void);
 uint16_t adc0_get_raw_data(void);
 
 void adc1_init(void);

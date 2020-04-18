@@ -5,7 +5,7 @@
 #include "i2s_util.h"
 #include "audio_buf.h"
 
-#define SIZE_OF_SAMPLES (1024)  // samples for 2ch
+#define SIZE_OF_SAMPLES (1024)  // samples for 2ch total
 //#define SAMPLE_RATE     (36000)
 #define SAMPLE_RATE     (44100)
 //#define SAMPLE_RATE     (2000)

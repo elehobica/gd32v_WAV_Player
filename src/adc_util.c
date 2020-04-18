@@ -52,9 +52,9 @@ void adc0_init(void)
     adc_software_trigger_enable(ADC0, ADC_REGULAR_CHANNEL);
 }
 
-uint32_t adc0_get_hp_button(void)
+uint8_t adc0_get_hp_button(void)
 {
-    uint32_t ret;
+    uint8_t ret;
     // 3.3V ~ 5.0V both support (high mistake rate)
     /*
     if (adc0_rdata < 198) { // < 160mV  4095*160/3300 (CENTER)

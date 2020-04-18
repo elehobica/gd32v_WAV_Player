@@ -1,5 +1,8 @@
 #!ruby
 
+require 'time'
+Vinyl_thres_time = Time.parse("2018/03/08 00:00:00")
+
 # config
 # - key: コピー先のフォルダ名
 # - cfg_DST_DIR_MAX_SIZE = config[0]
@@ -18,6 +21,11 @@
 CONFIGS = {
   _SiPeed_WAV_64GB: [
     61.5*1000*1000*1000, %w(
+      g:/Data/Media/Audio/*/*
+    ), 0
+  ],
+  _SiPeed_WAV_512GB: [
+    509.5*1000*1000*1000, %w(
       g:/Data/Media/Audio/*/*
     ), 0
   ]
@@ -83,9 +91,10 @@ def rm_empty_dir(path)
 end
 
 ### MAIN ###
-key = '_SiPeed_WAV_64GB'
+#key = '_SiPeed_WAV_64GB'
+key = '_SiPeed_WAV_512GB'
 config = CONFIGS[key.to_sym]
-cfg_DST_DIR = "d:/Data/Media/#{key}"
+cfg_DST_DIR = "g:/Data/Media/#{key}"
 cfg_DST_DIR_MAX_SIZE = config[0]
 cfg_SRC_DIRS = config[1]
 cfg_FLAT_MODE = config[2]
@@ -99,6 +108,9 @@ cfg_SRC_DIRS.each do |dir|
 end
 
 total_size = 0
+
+system("cp -f logo.bin \"#{cfg_DST_DIR}\"")
+
 dirs_flat.sort{ |a, b| 
   # フォルダ以下のmp3ファイルの新しい順にソート
   aa = a.gsub(/([\[\]])/){ "\\" + $1 } #[]のエスケープ
@@ -108,6 +120,10 @@ dirs_flat.sort{ |a, b|
   if (aa_mp3_files.size == 0)
     1
   elsif (bb_mp3_files.size == 0)
+    -1
+  elsif (/\/\d+v\-/ =~ aa && /\/\d+v\-/ !~ bb && File.mtime(aa_mp3_files[0]) < Vinyl_thres_time)
+    1
+  elsif (/\/\d+v\-/ =~ bb && /\/\d+v\-/ !~ aa && File.mtime(bb_mp3_files[0]) < Vinyl_thres_time)
     -1
   else
     File.mtime(bb_mp3_files[0]) <=> File.mtime(aa_mp3_files[0])
@@ -133,15 +149,19 @@ dirs_flat.sort{ |a, b|
         system("ffmpeg.exe -i \"#{mp3}\" -vn -ac 2 -acodec pcm_s16le -n -f wav \"#{dst_dir}/#{wav}\"")
     end
   end
-  jpgs = Dir["#{src_dir}/*.jpg"]
-  if (jpgs.size > 0)
-    if (!FileTest.exist?("#{dst_dir}/cover.bin"))
+  if (!FileTest.exist?("#{dst_dir}/cover.bin"))
+    jpgs = Dir["#{src_dir}/*.jpg"]
+    if (jpgs.size > 0)
         system("python jpg2bin.py \"#{jpgs[0]}\" \"#{dst_dir}/cover.bin\"")
+    else
+        mp3 = Dir["#{src_dir}/*.mp3"][0]
+        system("ffmpeg.exe -y -i \"#{mp3}\" ./cover.jpg\"")
+        system("python jpg2bin.py ./cover.jpg \"#{dst_dir}/cover.bin\"")
     end
   end
   total_size += get_size(dst_dir)
   if (total_size > cfg_DST_DIR_MAX_SIZE)
-    system("rm -rf \"#{dst_dir}")
+    system("rm -rf \"#{dst_dir}\"")
     break
   end
   dst_dirs.push(dst_dir)
@@ -155,7 +175,7 @@ else
 end
 
 (storage_dirs - dst_dirs).each do |item|
-  system("rm -rf \"#{item}")
+  system("rm -rf \"#{item}\"")
 end
 
 rm_empty_dir(cfg_DST_DIR)

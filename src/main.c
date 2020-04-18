@@ -9,7 +9,9 @@
 #include "fifo/stack.h"
 
 #define NUM_BTN_HISTORY     30
-#define FLASH_PAGE127       (FLASH_BASE + 0x400*127)
+#define FLASH_PAGE_SIZE     0x400
+#define FLASH_PAGE127       (FLASH_BASE + FLASH_PAGE_SIZE*127)
+#define CFG_SIZE            0x80
 #define CFG_VERSION         (FLASH_PAGE127 + 0x380)
 #define CFG_VOLUME          (FLASH_PAGE127 + 0x384)
 #define CFG_STACK_COUNT     (FLASH_PAGE127 + 0x388)
@@ -25,7 +27,9 @@
 #define CFG32(x)            REG32(x)
 
 int version;
-unsigned char image[160*80*2/2];
+//unsigned char image[160*80*2/2];
+unsigned char *image0 = NULL; // 80*80*70
+unsigned char *image1 = NULL; // 80*80*70
 uint32_t count10ms = 0;
 uint32_t count_sec = 0;
 uint16_t bat_lvl = 99; // 0 ~ 99
@@ -47,7 +51,7 @@ uint32_t idx_play_count = 0;
 int cover_exists = 0;
 uint32_t data_offset_prv = 0;
 
-uint32_t button_prv[NUM_BTN_HISTORY] = {}; // initialized as HP_BUTTON_OPEN
+uint8_t button_prv[NUM_BTN_HISTORY] = {}; // initialized as HP_BUTTON_OPEN
 uint32_t button_repeat_count = 0;
 stack_t *stack; // for change directory history
 
@@ -182,15 +186,16 @@ void power_off(char *msg, int is_error)
     stack_data_t item;
     // save flash config
     if (!is_error) {
-        unsigned int *data = (unsigned int *) image;
-        for (i = 0; i < 1024 - 128; i += 4) {
-            data[i/4] = CFG32(FLASH_PAGE127 + i);
+        unsigned int *data = (unsigned int *) malloc(FLASH_PAGE_SIZE - CFG_SIZE);
+        for (i = 0; i < FLASH_PAGE_SIZE - CFG_SIZE; i += 4) {
+            data[i/4] = CFG32(FLASH_PAGE127 + i); // this is not configuration values but flash values
         }
         fmc_unlock();
         fmc_page_erase(FLASH_PAGE127);
-        for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
+        for (i = 0; i < FLASH_PAGE_SIZE - CFG_SIZE; i += 4) { // write back 1024-128 Byte
             fmc_word_program(FLASH_PAGE127 + i, data[i/4]);
         }
+        free(data);
         // flash config
         fmc_word_program(CFG_VERSION, version);
         fmc_word_program(CFG_VOLUME, volume_get());
@@ -272,7 +277,7 @@ void tick_100ms(void)
     int center_clicks;
     // Center Button: event timing is at button release
     // Other Buttons: event timing is at button push
-    uint32_t button = adc0_get_hp_button();
+    uint8_t button = adc0_get_hp_button();
     if (button == HP_BUTTON_OPEN) {
         button_repeat_count = 0;
         center_clicks = count_center_clicks(); // must be called once per tick because button_prv[] status has changed
@@ -481,15 +486,16 @@ int main(void)
     version = CFG32(CFG_VERSION);
     if (version == 0xffffffff) { // if no history written
         printf("Initialize flash config\n\r");
-        unsigned int *data = (unsigned int *) image;
-        for (i = 0; i < 1024 - 128; i += 4) {
-            data[i/4] = CFG32(FLASH_PAGE127 + i);
+        unsigned int *data = (unsigned int *) malloc(FLASH_PAGE_SIZE - CFG_SIZE);
+        for (i = 0; i < FLASH_PAGE_SIZE - CFG_SIZE; i += 4) {
+            data[i/4] = CFG32(FLASH_PAGE127 + i);  // this is not configuration values but flash values
         }
         fmc_unlock();
         fmc_page_erase(FLASH_PAGE127);
-        for (i = 0; i < 1024 - 128; i += 4) { // write back 1024-128 Byte
+        for (i = 0; i < FLASH_PAGE_SIZE - CFG_SIZE; i += 4) { // write back 1024-128 Byte
             fmc_word_program(FLASH_PAGE127 + i, data[i/4]);
         }
+        free(data);
         // flash config initial values
         fmc_word_program(CFG_VERSION, 100);
         fmc_word_program(CFG_VOLUME, 65);
@@ -531,13 +537,23 @@ int main(void)
     // Opening Logo
     LCD_Clear(WHITE);
     BACK_COLOR=WHITE;
+    image0 = (unsigned char *) malloc(160*35*2);
+    image1 = (unsigned char *) malloc(160*5*2);
     fr = f_open(&fil, "logo.bin", FA_READ);
-    if (fr) printf("open error: %d!\n\r", (int)fr);
-    for (i = 0; i < 2; i++) {
-        fr = f_read(&fil, image, sizeof(image), &br);
-        LCD_ShowPicture(0, 40*i, 159, 40*(i+1)-1);
+    if (fr) {
+        printf("open error: %d!\n\r", (int)fr);
+    } else {
+        for (i = 0; i < 2; i++) {
+            fr = f_read(&fil, image0, 160*35*2, &br);
+            fr = f_read(&fil, image1, 160*5*2, &br);
+            LCD_ShowPicture(0, 40*i, 159, 40*(i+1)-1);
+        }
     }
     delay_1ms(500);
+    free(image0);
+    free(image1);
+    image0 = NULL;
+    image1 = NULL;
     f_close(&fil);
 
     // Clear Logo
@@ -594,6 +610,9 @@ int main(void)
             aud_req = 0;
         } else if (aud_req == 2) {
             audio_stop();
+            free(image0);
+            free(image1);
+            image0 = image1 = NULL;
             mode = FileView;
             LCD_Clear(BLACK);
             BACK_COLOR=BLACK;
@@ -648,10 +667,20 @@ int main(void)
                 // Load cover art
                 fr = f_open(&fil, "cover.bin", FA_READ);
                 if (fr == FR_OK) {
-                    fr = f_read(&fil, image, sizeof(image), &br);
+                    image0 = (unsigned char *) malloc(80*70*2);
+                    image1 = (unsigned char *) malloc(80*10*2);
+                    if (image0 != NULL && image1 != NULL) {
+                        fr = f_read(&fil, image0, 80*70*2, &br);
+                        fr = f_read(&fil, image1, 80*10*2, &br);
+                        cover_exists = 1;
+                    } else {
+                        LEDR(0);
+                        cover_exists = 0;
+                    }
                     f_close(&fil);
-                    cover_exists = 1;
                 } else {
+                    image0 = NULL;
+                    image1 = NULL;
                     cover_exists = 0;
                     printf("open error: cover.bin %d!\n\r", (int)fr);
                 }
@@ -723,6 +752,9 @@ int main(void)
             if (mode == Play) {
                 if (!audio_is_playing_or_pausing()) {
                     audio_stop();
+                    free(image0);
+                    free(image1);
+                    image0 = image1 = NULL;
                     mode = FileView;
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
@@ -739,9 +771,9 @@ int main(void)
                     if (data_offset_prv == 0 || data_offset_prv > audio_info->data_offset) { // when changing to next title
                         //LCD_Clear(BLACK);
                         //BACK_COLOR=BLACK;
-                        if (cover_exists) {
-                            LCD_ShowDimPicture(0,0,0+79,79, 48);
-                            LCD_ShowDimPicture(80,0,80+79,79, 48);
+                        if (cover_exists && image0 != NULL && image1 != NULL) {
+                            LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
+                            LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
                         }
                         sft_ttl = 0;
                         sft_art = 0;
@@ -801,22 +833,22 @@ int main(void)
                     sprintf(lcd_str, "%3d", volume_get());
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
                     data_offset_prv = audio_info->data_offset;
-                } else if (cover_exists && idx_play_count % 128 == 96) {
+                } else if (cover_exists && image0 != NULL && image1 != NULL && idx_play_count % 128 == 96) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
-                    LCD_ShowDimPicture(0,0,0+79,79, 32);
-                    LCD_ShowDimPicture(80,0,80+79,79, 32);
-                    LCD_ShowPicture(40,0,40+79,79);
+                    LCD_ShowDimPicture(0, 0, 0+79, 79, 32);
+                    LCD_ShowDimPicture(80, 0, 80+79, 79, 32);
+                    LCD_ShowPicture(40, 0, 40+79, 79);
                 /*
-                } else if (cover_exists && idx_play_count % 128 >= 113 && idx_play_count % 128 < 127) {
+                } else if (cover_exists && image0 != NULL && image1 != NULL && idx_play_count % 128 >= 113 && idx_play_count % 128 < 127) {
                     // Cover Art Fade out
-                    LCD_ShowDimPicture(40,0,40+79,79, (128 - (idx_play_count % 128))*16);
+                    LCD_ShowDimPicture(40, 0, 40+79, 79, (128 - (idx_play_count % 128))*16);
                 */
-                } else if (cover_exists && idx_play_count % 128 == 127) {
+                } else if (cover_exists && image0 != NULL && image1 != NULL && idx_play_count % 128 == 127) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
-                    LCD_ShowDimPicture(0,0,0+79,79, 48);
-                    LCD_ShowDimPicture(80,0,80+79,79, 48);
+                    LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
+                    LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
                 }
                 idx_play_count++;
                 if (idx_idle_count < 10 * 60 * 1) {
