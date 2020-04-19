@@ -434,6 +434,7 @@ int main(void)
     uint16_t sft_art = 0;
     uint16_t sft_alb = 0;
     uint16_t sft_num = 0;
+    uint16_t lvl_l, lvl_r;
 
     // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
     rcu_periph_clock_enable(RCU_GPIOB);
@@ -797,11 +798,25 @@ int main(void)
                             LCD_Scroll_ShowString(8*2, 16*2, 8*2, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
                         }
                         // Level Meter L
-                        LCD_Fill(8*0, 16*3+0, (LCD_W-1)*audio_info->lvl_l/100, 16*3+0 + 4, DARKGRAY);
-                        LCD_Fill((LCD_W-1)*audio_info->lvl_l/100, 16*3+0, LCD_W-1, 16*3+0 + 4, BLACK);
+                        lvl_l = (LCD_W-1)*audio_info->lvl_l/100;
+                        LCD_Fill(8*0, 16*3+0, lvl_l, 16*3+0 + 4, DARKGRAY);
+                        //LCD_Fill(lvl_l, 16*3+0, LCD_W-1, 16*3+0 + 4, BLACK);
+                        if (lvl_l < 80) {
+                            LCD_ShowDimPictureOfs(lvl_l, 16*3+0, 79, 16*3+0 + 4, 48, lvl_l, 16*3+0);
+                            LCD_ShowDimPictureOfs(80, 16*3+0, 159, 16*3+0 + 4, 48, 0, 16*3+0);
+                        } else {
+                            LCD_ShowDimPictureOfs(lvl_l, 16*3+0, 159, 16*3+0 + 4, 48, lvl_l-80, 16*3+0);
+                        }
                         // Level Meter R
-                        LCD_Fill(8*0, 16*3+8, (LCD_W-1)*audio_info->lvl_r/100, 16*3+8 + 4, DARKGRAY);
-                        LCD_Fill((LCD_W-1)*audio_info->lvl_r/100, 16*3+8, LCD_W-1, 16*3+8 + 4, BLACK);
+                        lvl_r = (LCD_W-1)*audio_info->lvl_r/100;
+                        LCD_Fill(8*0, 16*3+8, lvl_r, 16*3+8 + 4, DARKGRAY);
+                        //LCD_Fill(lvl_r, 16*3+8, LCD_W-1, 16*3+8 + 4, BLACK);
+                        if (lvl_r < 80) {
+                            LCD_ShowDimPictureOfs(lvl_r, 16*3+8, 79, 16*3+8 + 4, 48, lvl_r, 16*3+8);
+                            LCD_ShowDimPictureOfs(80, 16*3+8, 159, 16*3+8 + 4, 48, 0, 16*3+8);
+                        } else {
+                            LCD_ShowDimPictureOfs(lvl_r, 16*3+8, 159, 16*3+8 + 4, 48, lvl_r-80, 16*3+8);
+                        }
                         // Progress Bar
                         if (audio_info->data_size != 0) {
                             progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow

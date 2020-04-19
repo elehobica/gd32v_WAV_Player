@@ -160,6 +160,8 @@ void LCD_Scroll_ShowString(u16 x, u16 y, u16 x_min, u16 x_max, u8 *p, u16 color,
 // dim: 0(dark) ~ 255(original)
 void LCD_ShowDimPicture(u16 x1, u16 y1, u16 x2, u16 y2, u8 dim)
 {
+	LCD_ShowDimPictureOfs(x1, y1, x2, y2, dim, 0, 0);
+#if 0
 	int i;
 	LCD_Address_Set(x1,y1,x2,y2);
 	u16 val;
@@ -182,6 +184,41 @@ void LCD_ShowDimPicture(u16 x1, u16 y1, u16 x2, u16 y2, u8 dim)
 		*/
 		LCD_WR_DATA8((val >> 8)&0xff);
 		LCD_WR_DATA8(val & 0xff);
+	}
+#endif
+}
+
+
+// dim: 0(dark) ~ 255(original)
+void LCD_ShowDimPictureOfs(u16 x1, u16 y1, u16 x2, u16 y2, u8 dim, u16 ofs_x, u16 ofs_y)
+{
+	int i;
+	int x, y;
+	LCD_Address_Set(x1,y1,x2,y2);
+	u16 val;
+	u16 r, g, b;
+	for (y = y1; y <= y2; y++) {
+		i = ((ofs_y + y - y1)*80+ofs_x)*2;
+		for (x = x1; x <= x2; x++) {
+			if (i < 80*70*2) {
+				val = ((u16) image0[i] << 8) | ((u16) image0[i+1]);
+			} else {
+				val = ((u16) image1[i-80*70*2] << 8) | ((u16) image1[i+1-80*70*2]);
+			}
+			r = (u16) ((((u32) val & 0xf800) * dim / 255) & 0xf800);
+			g = (u16) ((((u32) val & 0x07e0) * dim / 255) & 0x07e0);
+			b = (u16) ((((u32) val & 0x001f) * dim / 255) & 0x001f);
+			val = r | g | b;
+			/*
+			r = ((val >> 11) & 0x1f) * dim / 255;
+			g = ((val >> 5) & 0x3f)  * dim / 255;
+			b = (val & 0x1f) * dim / 255;
+			val = ((r&0x1f)<<11) | ((g&0x3f)<<5) | (b&0x1f);
+			*/
+			LCD_WR_DATA8((val >> 8)&0xff);
+			LCD_WR_DATA8(val & 0xff);
+			i += 2;
+		}
 	}
 }
 
