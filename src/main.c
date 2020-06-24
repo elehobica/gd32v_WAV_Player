@@ -24,6 +24,7 @@
 #define CFG_MODE            (FLASH_PAGE127 + 0x3a4)
 #define CFG_IDX_PLAY        (FLASH_PAGE127 + 0x3a8)
 #define CFG_DATA_OFFSET     (FLASH_PAGE127 + 0x3ac)
+#define CFG_SEED            (FLASH_PAGE127 + 0x3b0)
 #define CFG32(x)            REG32(x)
 
 int version;
@@ -208,6 +209,7 @@ void power_off(char *msg, int is_error)
         fmc_word_program(CFG_MODE, mode);
         fmc_word_program(CFG_IDX_PLAY, audio_get_idx_play());
         fmc_word_program(CFG_DATA_OFFSET, audio_get_info()->data_offset);
+        fmc_word_program(CFG_SEED, rtc_counter_get());
         fmc_lock();
         printf("Saved flash config\n\r");
     }
@@ -510,6 +512,7 @@ int main(void)
         fmc_word_program(CFG_MODE, FileView);
         fmc_word_program(CFG_IDX_PLAY, 0);
         fmc_word_program(CFG_DATA_OFFSET, 0);
+        fmc_word_program(CFG_SEED, 0);
         fmc_lock();
     } else {
         for (i = 0; i < 128; i += 4) {
@@ -517,6 +520,17 @@ int main(void)
         }
     }
     volume_set(CFG32(CFG_VOLUME));
+
+    // RTC is used for random seed
+    rcu_periph_clock_enable(RCU_PMU);
+    rcu_periph_clock_enable(RCU_BKPI);
+    rcu_periph_clock_enable(RCU_RTC);
+    //rcu_bkp_reset_enable();
+    pmu_backup_write_enable();
+    RCU_BDCTL |= RCU_BDCTL_RTCEN;
+    rcu_rtc_clock_config(RCU_RTCSRC_HXTAL_DIV_128);
+    rtc_prescaler_set(0);
+    rtc_counter_set(CFG32(CFG_SEED));
 
     // Mount FAT
     fr = f_mount(&fs, "", 1); // 0: mount successful ; 1: mount failed
@@ -573,8 +587,8 @@ int main(void)
     */
 
     // Random Seed
-    printf("Random seed = %d\n\r", i = adc0_get_raw_data() * adc0_get_raw_data() - adc0_get_raw_data());
-    srand(i);
+    printf("Random seed = %lu\n\r", (uint32_t) CFG32(CFG_SEED));
+    srand((uint32_t) CFG32(CFG_SEED));
 
     // Search Directories / Files
     stack = stack_init();
