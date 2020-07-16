@@ -169,7 +169,9 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 		printf("before[%d] %d %s\n\r", k, entry_list[k], fno.fname);
 	}
 	*/
-	if (end_1 - start <= 2) {
+	if (end_1 - start <= 1) {
+		set_sorted(start);
+	} else if (end_1 - start <= 2) {
 		// try fast_fname_list compare
 		result = get_is_file(entry_list[start]) - get_is_file(entry_list[start+1]);
 		if (result == 0) {
