@@ -340,7 +340,7 @@ void tick_100ms(void)
         button_repeat_count++;
     }
     // Button status shift
-    for (i = NUM_BTN_HISTORY-1; i >= 0; i--) {
+    for (i = NUM_BTN_HISTORY-2; i >= 0; i--) {
         button_prv[i+1] = button_prv[i];
     }
     button_prv[0] = button;
