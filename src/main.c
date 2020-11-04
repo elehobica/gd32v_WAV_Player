@@ -122,7 +122,9 @@ void idx_fast_inc(void)
     if (idx_req != 1) {
         if (idx_head >= file_menu_get_size() - 5 && idx_column == 4) return;
         if (idx_head + idx_column + 1 >= file_menu_get_size()) return;
-        if (idx_head + 5 >= file_menu_get_size() - 5) {
+        if (file_menu_get_size() < 5) {
+            idx_inc();
+        } else if (idx_head + 5 >= file_menu_get_size() - 5) {
             idx_head = file_menu_get_size() - 5;
             idx_inc();
         } else {
