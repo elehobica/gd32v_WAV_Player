@@ -2,8 +2,7 @@
 #include "lcd/oledfont.h"
 #include "lcd/bmp.h"
 u16 BACK_COLOR;   //背景色
-extern unsigned char *image0; // 80*80*70
-extern unsigned char *image1; // 80*80*70
+extern unsigned char *image[8]; // 80*10*2
 
 /******************************************************************************
       函数说明：LCD串行数据写入函数
@@ -658,13 +657,11 @@ void LCD_ShowNum1(u16 x,u16 y,float num,u8 len,u16 color)
 void LCD_ShowPicture(u16 x1, u16 y1, u16 x2, u16 y2)
 {
 	int i;
+	int j;
 	LCD_Address_Set(x1,y1,x2,y2);
 	for (i=0; i < (x2-x1+1)*(y2-y1+1)*2; i++) {
-		if (i < 80*70*2) {
-			LCD_WR_DATA8(image0[i]);
-		} else {
-			LCD_WR_DATA8(image1[i-80*70*2]);
-		}
+		j = i/(80*10*2);
+		LCD_WR_DATA8(image[j][i-80*j*10*2]);
 	}			
 }
 

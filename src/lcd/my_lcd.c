@@ -2,8 +2,7 @@
 #include "lcd/iconfont.h"
 
 extern const u8 asc2_1608[1520];
-extern unsigned char *image0; // 80*80*70
-extern unsigned char *image1; // 80*80*70
+extern unsigned char *image[8]; // 80*10*2
 
 // Show 16x16 ICON
 // mode: 0: non-overlay, 1: overlay
@@ -163,14 +162,16 @@ void LCD_ShowDimPicture(u16 x1, u16 y1, u16 x2, u16 y2, u8 dim)
 	LCD_ShowDimPictureOfs(x1, y1, x2, y2, dim, 0, 0);
 #if 0
 	int i;
+	int j;
 	LCD_Address_Set(x1,y1,x2,y2);
 	u16 val;
 	u16 r, g, b;
 	for (i=0; i < (x2-x1+1)*(y2-y1+1)*2; i+=2) {
-		if (i < 80*70*2) {
-			val = ((u16) image0[i] << 8) | ((u16) image0[i+1]);
-		} else {
-			val = ((u16) image1[i-80*70*2] << 8) | ((u16) image1[i+1-80*70*2]);
+		for (j=0; j < 8; j++) {
+			if (i >= 80*j*10*2 && i < 80*(j+1)*10*2) {
+				val = ((u16) image[j][i-80*j*2] << 8) | ((u16) image[j][i+1-80*j*2]);
+				break;
+			}
 		}
 		r = (u16) ((((u32) val & 0xf800) * dim / 255) & 0xf800);
 		g = (u16) ((((u32) val & 0x07e0) * dim / 255) & 0x07e0);
@@ -193,18 +194,16 @@ void LCD_ShowDimPicture(u16 x1, u16 y1, u16 x2, u16 y2, u8 dim)
 void LCD_ShowDimPictureOfs(u16 x1, u16 y1, u16 x2, u16 y2, u8 dim, u16 ofs_x, u16 ofs_y)
 {
 	int i;
+	int j;
 	int x, y;
 	LCD_Address_Set(x1,y1,x2,y2);
 	u16 val;
 	u16 r, g, b;
 	for (y = y1; y <= y2; y++) {
 		i = ((ofs_y + y - y1)*80+ofs_x)*2;
+		j = i/(80*10*2);
 		for (x = x1; x <= x2; x++) {
-			if (i < 80*70*2) {
-				val = ((u16) image0[i] << 8) | ((u16) image0[i+1]);
-			} else {
-				val = ((u16) image1[i-80*70*2] << 8) | ((u16) image1[i+1-80*70*2]);
-			}
+			val = ((u16) image[j][i-80*j*10*2] << 8) | ((u16) image[j][i-80*j*10*2+1]);
 			r = (u16) ((((u32) val & 0xf800) * dim / 255) & 0xf800);
 			g = (u16) ((((u32) val & 0x07e0) * dim / 255) & 0x07e0);
 			b = (u16) ((((u32) val & 0x001f) * dim / 255) & 0x001f);

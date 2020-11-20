@@ -6,9 +6,7 @@
 #include "audio_buf.h"
 
 #define SIZE_OF_SAMPLES (1024)  // samples for 2ch total
-//#define SAMPLE_RATE     (36000)
 #define SAMPLE_RATE     (44100)
-//#define SAMPLE_RATE     (2000)
 
 #define INIT_MUTE_COUNT 100
 
@@ -17,13 +15,13 @@ int32_t audio_buf[2][SIZE_OF_SAMPLES];
 // Audio Buffer for File Read
 int16_t buf_16b[SIZE_OF_SAMPLES];
 
-static int count = 0;
+volatile static int count = 0;
 
 FIL fil;
 audio_info_type audio_info;
 int32_t dma_trans_number;
 uint16_t idx_play = 0;
-int next_is_end = 0;
+volatile int next_is_end = 0;
 int playing = 0;
 int pausing = 0;
 int finished = 0; // means the player has finished to play whole files in the folder (by not stop)

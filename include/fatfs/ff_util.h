@@ -5,7 +5,7 @@
 
 #define TGT_DIRS    (1<<0)
 #define TGT_FILES   (1<<1)
-#define FFL_SZ 6
+#define FFL_SZ 8
 
 FRESULT file_menu_open_dir(const TCHAR *path);
 FRESULT file_menu_ch_dir(uint16_t order);

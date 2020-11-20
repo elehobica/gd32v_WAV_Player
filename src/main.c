@@ -29,8 +29,7 @@
 
 int version;
 //unsigned char image[160*80*2/2];
-unsigned char *image0 = NULL; // 80*80*70
-unsigned char *image1 = NULL; // 80*80*70
+unsigned char *image[8] = {}; // 80*10*2
 uint32_t count10ms = 0;
 uint32_t count_sec = 0;
 uint16_t bat_lvl = 99; // 0 ~ 99
@@ -429,6 +428,7 @@ int main(void)
     stack_data_t item;
     int stack_count;
     int i;
+    int j;
     uint16_t progress;
     uint16_t idx_play = 0;
     const audio_info_type *audio_info;
@@ -554,23 +554,25 @@ int main(void)
     // Opening Logo
     LCD_Clear(WHITE);
     BACK_COLOR=WHITE;
-    image0 = (unsigned char *) malloc(160*35*2);
-    image1 = (unsigned char *) malloc(160*5*2);
+    for (i = 0; i < 8; i++) {
+        image[i] = (unsigned char *) malloc(160*5*2);
+    }
     fr = f_open(&fil, "logo.bin", FA_READ);
     if (fr) {
         printf("open error: %d!\n\r", (int)fr);
     } else {
         for (i = 0; i < 2; i++) {
-            fr = f_read(&fil, image0, 160*35*2, &br);
-            fr = f_read(&fil, image1, 160*5*2, &br);
+            for (j = 0; j < 8; j++) {
+                fr = f_read(&fil, image[j], 160*5*2, &br);
+            }
             LCD_ShowPicture(0, 40*i, 159, 40*(i+1)-1);
         }
     }
     delay_1ms(500);
-    free(image0);
-    free(image1);
-    image0 = NULL;
-    image1 = NULL;
+    for (i = 0; i < 8; i++) {
+        free(image[i]);
+        image[i] = NULL;
+    }
     f_close(&fil);
 
     // Clear Logo
@@ -627,9 +629,10 @@ int main(void)
             aud_req = 0;
         } else if (aud_req == 2) {
             audio_stop();
-            free(image0);
-            free(image1);
-            image0 = image1 = NULL;
+            for (i = 0; i < 8; i++) {
+                free(image[i]);
+                image[i] = NULL;
+            }
             mode = FileView;
             LCD_Clear(BLACK);
             BACK_COLOR=BLACK;
@@ -684,20 +687,22 @@ int main(void)
                 // Load cover art
                 fr = f_open(&fil, "cover.bin", FA_READ);
                 if (fr == FR_OK) {
-                    image0 = (unsigned char *) malloc(80*70*2);
-                    image1 = (unsigned char *) malloc(80*10*2);
-                    if (image0 != NULL && image1 != NULL) {
-                        fr = f_read(&fil, image0, 80*70*2, &br);
-                        fr = f_read(&fil, image1, 80*10*2, &br);
-                        cover_exists = 1;
-                    } else {
-                        LEDR(0);
-                        cover_exists = 0;
+                    cover_exists = 1;
+                    for (i = 0; i < 8; i++) {
+                        image[i] = (unsigned char *) malloc(80*10*2);
+                        if (image[i] != NULL) {
+                            fr = f_read(&fil, image[i], 80*10*2, &br);
+                        } else {
+                            LEDR(0);
+                            cover_exists = 0;
+                            break;
+                        }
                     }
                     f_close(&fil);
                 } else {
-                    image0 = NULL;
-                    image1 = NULL;
+                    for (i = 0; i < 8; i++) {
+                        image[i] = NULL;
+                    }
                     cover_exists = 0;
                     printf("open error: cover.bin %d!\n\r", (int)fr);
                 }
@@ -769,9 +774,10 @@ int main(void)
             if (mode == Play) {
                 if (!audio_is_playing_or_pausing()) {
                     audio_stop();
-                    free(image0);
-                    free(image1);
-                    image0 = image1 = NULL;
+                    for (i = 0; i < 8; i++) {
+                        free(image[i]);
+                        image[i] = NULL;
+                    }
                     mode = FileView;
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
@@ -788,7 +794,7 @@ int main(void)
                     if (data_offset_prv == 0 || data_offset_prv > audio_info->data_offset) { // when changing to next title
                         //LCD_Clear(BLACK);
                         //BACK_COLOR=BLACK;
-                        if (cover_exists && image0 != NULL && image1 != NULL) {
+                        if (cover_exists) {
                             LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
                             LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
                         }
@@ -864,18 +870,18 @@ int main(void)
                     sprintf(lcd_str, "%3d", volume_get());
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
                     data_offset_prv = audio_info->data_offset;
-                } else if (cover_exists && image0 != NULL && image1 != NULL && idx_play_count % 128 == 96) {
+                } else if (cover_exists && idx_play_count % 128 == 96) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0, 0, 0+79, 79, 32);
                     LCD_ShowDimPicture(80, 0, 80+79, 79, 32);
                     LCD_ShowPicture(40, 0, 40+79, 79);
                 /*
-                } else if (cover_exists && image0 != NULL && image1 != NULL && idx_play_count % 128 >= 113 && idx_play_count % 128 < 127) {
+                } else if (cover_exists && idx_play_count % 128 >= 113 && idx_play_count % 128 < 127) {
                     // Cover Art Fade out
                     LCD_ShowDimPicture(40, 0, 40+79, 79, (128 - (idx_play_count % 128))*16);
                 */
-                } else if (cover_exists && image0 != NULL && image1 != NULL && idx_play_count % 128 == 127) {
+                } else if (cover_exists && idx_play_count % 128 == 127) {
                     LCD_Clear(BLACK);
                     BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
