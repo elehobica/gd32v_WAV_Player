@@ -599,6 +599,7 @@ int main(void)
     mode = CFG32(CFG_MODE);
     if (mode == Play) {
         idx_req_open = 1;
+        idx_req = 0;
         idx_play = CFG32(CFG_IDX_PLAY);
         audio_set_data_offset(CFG32(CFG_DATA_OFFSET));
     }
