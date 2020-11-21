@@ -1,25 +1,28 @@
 # gd32v_WAV_Player
+![Bare](gd32v_WAV_Player_bare.jpg)
+![Case](gd32v_WAV_Player_with_case.jpg)
 
 ## Features
-### Supported
 * 44.1KHz 16bit Stereo WAV File
 * ES9023 24bit Audio DAC
 * Tag information by LIST chunk
 * Cover Art display by original format binary file
-* ExFAT MicroSD
-* ASCII sorted folder/file navigation
+* ExFAT MicroSD (up to 512GB)
+* Folder/File navigation by ASCII order
 * Remote control by Android Headphone button (3 buttons)
-* DAC volume (utilizing 24bit resolution for playing 16bit Audio stream)
-* Album unit auto random play by time out after play finish (Assuming [Artist Folder]/[Album Folder] structure)
+* DAC volume (utilizing 24bit resolution for playing 16bit Audio data)
+* Album unit random play by time out after play finish (Assuming [Artist Folder]/[Album Folder] structure)
+* Resume playback
 
 ### Not supported
 * Multibyte string file name
 * Unicode Tag information
 * Fast Forward / Fast Rewind
-* Gapless play
+* Gapless playback
 
 ## Button Control Guide
 Connect MIC pin of Android headphone remote control with 3 buttons to PA0 pin of Longan Nano.
+PA0 also needs to be pulled-up by 2.2Kohm from 3.3V.
 
 ### FileView Mode
 * Up/Down button to go up/down
@@ -53,3 +56,4 @@ Long push Center button
 | 3 | SDI | PB5 |
 | 13 | MCLK | PA8 |
 | 15 | MUTE_B | PB6 |
+
