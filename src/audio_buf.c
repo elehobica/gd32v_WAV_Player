@@ -8,8 +8,6 @@
 #define SIZE_OF_SAMPLES (1024)  // samples for 2ch total
 #define SAMPLE_RATE     (44100)
 
-#define INIT_MUTE_COUNT 100
-
 // Audio Double Buffer from DMA transfer
 int32_t audio_buf[2][SIZE_OF_SAMPLES];
 // Audio Buffer for File Read
@@ -21,7 +19,7 @@ FIL fil;
 audio_info_type audio_info;
 int32_t dma_trans_number;
 uint16_t idx_play = 0;
-volatile int next_is_end = 0;
+int next_is_end = 0;
 int playing = 0;
 int pausing = 0;
 int finished = 0; // means the player has finished to play whole files in the folder (by not stop)
@@ -74,7 +72,7 @@ static void step_read_list_chunk_info_type(void)
         if (size < 255) {
             memset(str, 0, 256);
             fr = f_read(&fil, str, size, &br);
-            if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
+            if (fr) printf("ERROR C: f_read %d\n\r", (int) fr);
             if (memcmp(chunk_id, "iart", 4) == 0 || memcmp(chunk_id, "IART", 4) == 0) {
                 //printf("Artist: %s\n\r", str);
                 memcpy(audio_info.artist, str, sizeof(audio_info.artist));
@@ -102,7 +100,7 @@ static int list_chunk_is_info_type(void)
     char chunk_id[4];
 
     fr = f_read(&fil, chunk_id, 4, &br);
-    if (fr) printf("ERROR: f_read %d\n\r", (int) fr);
+    if (fr) printf("ERROR D: f_read %d\n\r", (int) fr);
     return (memcmp(chunk_id, "info", 4) == 0 || memcmp(chunk_id, "INFO", 4) == 0);
 }
 
@@ -116,7 +114,6 @@ static int load_next_file(void)
     uint32_t size;
     uint32_t offset;
 
-    //PA_OUT(3, 1);
     while (idx_play <= file_menu_get_size()) {
         fname_ptr = file_menu_get_fname_ptr(idx_play);
         len = strlen(fname_ptr);
@@ -186,27 +183,13 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
     int i;
     FRESULT fr;     /* FatFs return code */
     UINT br;
-    int next_is_end = 0; /* 0: continue, 1: next is end */
+    int _next_is_end = 0; /* 0: continue, 1: next is end */
     uint32_t number;
     uint32_t file_rest;
     uint32_t trans_rest;
     uint32_t trans;
     uint32_t lvl_l = 0;
     uint32_t lvl_r = 0;
-
-    if (count < INIT_MUTE_COUNT || pausing) {
-        for (i = 0; i < SIZE_OF_SAMPLES; i++) buf_32b[i] = 0;
-        audio_info.lvl_l = 0;
-        audio_info.lvl_r = 0;
-        *trans_number = SIZE_OF_SAMPLES*2;
-        return 0;
-    }
-    if (count == INIT_MUTE_COUNT) {
-        if (!load_next_file()) { // End of playable file
-            next_is_end = 1;
-            return next_is_end;
-        }
-    }
 
     number = 0; // number to transfer
     while (number < sizeof(buf_16b)) {
@@ -219,10 +202,6 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
         if (fr == FR_OK) {
             number += trans;
             audio_info.data_offset += trans;
-            if (audio_info.info_start != 0) { // LIST Chunk Data Step Read
-                step_read_list_chunk_info_type();
-                f_lseek(&fil, audio_info.data_start + audio_info.data_offset); /* lseek is not needed because f_read automatically make position go forward */
-            }
         } else {
             printf("ERROR: f_read %d, data_offset = %d\n\r", (int) fr, (int) audio_info.data_offset);
             f_close(&fil);
@@ -231,22 +210,20 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
         }
         if (audio_info.data_size <= audio_info.data_offset) {
             f_close(&fil);
-            if (!load_next_file()) { // End of playable file
-                next_is_end = 1;
-                break;
-            }
+            _next_is_end = 1;
+            break;
         }
     }
     for (i = 0; i < number/4; i++) {
-        buf_32b[i*2+0] = swap16b((int) buf_16b[i*2+0] * vol_table[volume]); // L
-        buf_32b[i*2+1] = swap16b((int) buf_16b[i*2+1] * vol_table[volume]); // R
+        buf_32b[i*2+0] = (int32_t) swap16b((int32_t) buf_16b[i*2+0] * vol_table[volume]); // L
+        buf_32b[i*2+1] = (int32_t) swap16b((int32_t) buf_16b[i*2+1] * vol_table[volume]); // R
         lvl_l += abs(buf_16b[i*2+0]);
         lvl_r += abs(buf_16b[i*2+1]);
     }
     audio_info.lvl_l = get_level(lvl_l/(number/4));
     audio_info.lvl_r = get_level(lvl_r/(number/4));
     *trans_number = number;
-    return next_is_end;
+    return _next_is_end;
 }
 
 void audio_set_data_offset(uint32_t data_ofs)
@@ -261,17 +238,9 @@ void audio_init(void)
     memset(audio_info.title, 0, sizeof(audio_info.title));
     memset(audio_info.album, 0, sizeof(audio_info.album));
     memset(audio_info.number, 0, sizeof(audio_info.number));
-    //playlist = cfifo_create(2);
     count = 0;
     playing = 0;
     pausing = 0;
-}
-
-void audio_play(uint16_t idx)
-{
-    idx_play = idx;
-    if (playing) return;
-    if (idx_play > file_menu_get_size()) return;
 
     for (int i = 0; i < SIZE_OF_SAMPLES; i++) {
         audio_buf[0][i] = 0;
@@ -286,11 +255,35 @@ void audio_play(uint16_t idx)
     dma_interrupt_enable(DMA1, DMA_CH1, DMA_INT_FTF);
     eclic_irq_enable(DMA1_Channel1_IRQn, 15, 15); // level = 15, priority = 15 (MAX)
 
+}
+
+int audio_play(uint16_t idx)
+{
+    if (idx > 0) idx_play = idx; // if idx == 0 then try next file of previous file
+    if (playing) return 0;
+    if (idx_play > file_menu_get_size()) return 0;
+
+    memset(audio_info.filename, 0, sizeof(audio_info.filename));
+    if (!load_next_file()) {
+        finished = 1;
+        return 0;
+    }
+    memset(audio_info.artist, 0, sizeof(audio_info.artist));
+    memset(audio_info.title, 0, sizeof(audio_info.title));
+    memset(audio_info.album, 0, sizeof(audio_info.album));
+    memset(audio_info.number, 0, sizeof(audio_info.number));
+    while (audio_info.info_start != 0) { // LIST Chunk Data Step Read
+        step_read_list_chunk_info_type();
+    }
+    f_lseek(&fil, audio_info.data_start + audio_info.data_offset);
+
     count = 0;
-    playing = 1;
+    playing = 1; // After playing is set to 1, only IRQ routine can access file otherwise conflict occurs
     pausing = 0;
-    finished = 0;
     next_is_end = 0;
+    finished = 0;
+
+    return 1;
 }
 
 void audio_pause(void)
@@ -302,8 +295,6 @@ void audio_pause(void)
 void audio_stop(void)
 {
     if (playing || pausing) {
-        dma_flag_clear(DMA1, DMA_CH1, DMA_FLAG_FTF);
-        dma_channel_disable(DMA1, DMA_CH1);
         playing = 0;
         pausing = 0;
         f_close(&fil);
@@ -319,15 +310,20 @@ void DMA1_Channel1_IRQHandler(void)
     if (next_is_end) {
         playing = 0;
         pausing = 0;
-        finished = 1;
-        return;
     }
-    LEDB(0);
     init_dma_i2s2(audio_buf[nxt1], dma_trans_number);
     dma_channel_enable(DMA1, DMA_CH1);
-    next_is_end = get_audio_buf(&fil, audio_buf[nxt2], &dma_trans_number);
+    if (playing && !pausing) {
+        LEDB(0);
+        next_is_end = get_audio_buf(&fil, audio_buf[nxt2], &dma_trans_number);
+        LEDB(1);
+    } else {
+        for (int i = 0; i < SIZE_OF_SAMPLES; i++) {
+            audio_buf[nxt2][i] = 0;
+        }
+        dma_trans_number = SIZE_OF_SAMPLES*2;
+    }
     count++;
-    LEDB(1);
     //dma_interrupt_flag_clear(DMA1, DMA_CH1, DMA_INT_FLAG_G);  /* not needed */
 }
 
@@ -375,4 +371,3 @@ int volume_get(void)
 {
     return volume;
 }
-

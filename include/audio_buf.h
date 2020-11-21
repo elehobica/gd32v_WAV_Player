@@ -21,7 +21,7 @@ typedef struct {
 
 void audio_set_data_offset(uint32_t data_ofs);
 void audio_init(void);
-void audio_play(uint16_t idx);
+int audio_play(uint16_t idx);
 void audio_pause(void);
 void audio_stop(void);
 int audio_is_playing_or_pausing(void);

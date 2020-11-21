@@ -49,7 +49,6 @@ uint16_t idx_column = 0;
 uint32_t idx_idle_count = 0;
 uint32_t idx_play_count = 0;
 int cover_exists = 0;
-uint32_t data_offset_prv = 0;
 
 uint8_t button_prv[NUM_BTN_HISTORY] = {}; // initialized as HP_BUTTON_OPEN
 uint32_t button_repeat_count = 0;
@@ -222,7 +221,6 @@ void power_off(char *msg, int is_error)
 
     // LED signal
     LCD_Clear(BLACK);
-    BACK_COLOR=BLACK;
     if (is_error) {
         LCD_ShowString(24,  0, (u8 *)(msg), BLACK);
         LCD_ShowString(24, 16, (u8 *)(msg), BLUE);
@@ -431,9 +429,10 @@ int main(void)
     int j;
     uint16_t progress;
     uint16_t idx_play = 0;
-    const audio_info_type *audio_info;
+    volatile const audio_info_type *audio_info;
     uint8_t cur_min, cur_sec;
     //uint8_t ttl_min, ttl_sec;
+    // sft_xxx variables are keeping shifting position for string scroll
     uint16_t sft_ttl = 0;
     uint16_t sft_art = 0;
     uint16_t sft_alb = 0;
@@ -443,7 +442,7 @@ int main(void)
     // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
     rcu_periph_clock_enable(RCU_GPIOB);
     gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
-    PB_OUT(6, 0);
+    PB_OUT(6, 1);
 
     // LED Pin Setting  LEDR: PC13, LEDG: PA1, LEDB: PA2
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -553,13 +552,12 @@ int main(void)
 
     // Opening Logo
     LCD_Clear(WHITE);
-    BACK_COLOR=WHITE;
     for (i = 0; i < 8; i++) {
         image[i] = (unsigned char *) malloc(160*5*2);
     }
     fr = f_open(&fil, "logo.bin", FA_READ);
     if (fr) {
-        printf("open error: %d!\n\r", (int)fr);
+        printf("open error: logo.bin %d!\n\r", (int)fr);
     } else {
         for (i = 0; i < 2; i++) {
             for (j = 0; j < 8; j++) {
@@ -577,7 +575,6 @@ int main(void)
 
     // Clear Logo
     LCD_Clear(BLACK);
-    BACK_COLOR=BLACK;
 
     // DAC MCLK out from CK_OUT0 (PA8)
     gpio_init(GPIOA, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_8);
@@ -613,6 +610,7 @@ int main(void)
             file_menu_ch_dir(item.head+item.column);
         }
     }
+    audio_init();
     idx_head = CFG32(CFG_IDX) & 0xffff;
     idx_column = (CFG32(CFG_IDX) >> 16) & 0xffff;
     mode = CFG32(CFG_MODE);
@@ -635,7 +633,6 @@ int main(void)
             }
             mode = FileView;
             LCD_Clear(BLACK);
-            BACK_COLOR=BLACK;
             aud_req = 0;
             idx_req = 1;
         } else if (idx_req_open == 1) {
@@ -675,14 +672,13 @@ int main(void)
             } else { // File
                 file_menu_full_sort();
 
+                /*
                 // DAC MUTE_B Pin (0: Mute, 1: Normal) (PB6)
                 rcu_periph_clock_enable(RCU_GPIOB);
                 gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_6);
                 PB_OUT(6, 1);
+                */
 
-                // After audio_init(), Never call file_menu_xxx() functions!
-                // Otherwise, it causes conflict between main and int routine
-                audio_init();
                 mode = Play;
                 // Load cover art
                 fr = f_open(&fil, "cover.bin", FA_READ);
@@ -707,7 +703,8 @@ int main(void)
                     printf("open error: cover.bin %d!\n\r", (int)fr);
                 }
                 LCD_Clear(BLACK);
-                BACK_COLOR=BLACK;
+                // After audio_play(), Never call file_menu_xxx() functions until it stops.
+                // Otherwise, it causes conflict between main and int routine
                 if (idx_play > 1) {
                     audio_play(idx_play - 1);
                 } else {
@@ -773,27 +770,8 @@ int main(void)
         } else {
             if (mode == Play) {
                 if (!audio_is_playing_or_pausing()) {
-                    audio_stop();
-                    for (i = 0; i < 8; i++) {
-                        free(image[i]);
-                        image[i] = NULL;
-                    }
-                    mode = FileView;
-                    LCD_Clear(BLACK);
-                    BACK_COLOR=BLACK;
-                    idx_req = 1;
-                    idx_idle_count = 0;
-                    continue;
-                } else if (audio_is_pausing()) {
-                    idx_idle_count++;
-                } else {
-                    idx_idle_count = 0;
-                }
-                if (!cover_exists || idx_play_count % 128 < 96) {
-                    audio_info = audio_get_info();
-                    if (data_offset_prv == 0 || data_offset_prv > audio_info->data_offset) { // when changing to next title
-                        //LCD_Clear(BLACK);
-                        //BACK_COLOR=BLACK;
+                    if (audio_play(0)) { // play next file -> prepare to change to next title info
+                        LCD_Clear(BLACK);
                         if (cover_exists) {
                             LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
                             LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
@@ -802,7 +780,23 @@ int main(void)
                         sft_art = 0;
                         sft_alb = 0;
                         sft_num = 0;
+                    } else { // no next file -> play finish
+                        for (i = 0; i < 8; i++) {
+                            free(image[i]);
+                            image[i] = NULL;
+                        }
+                        mode = FileView;
+                        idx_req = 1;
+                        idx_idle_count = 0;
+                        continue;
                     }
+                } else if (audio_is_pausing()) {
+                    idx_idle_count++;
+                } else {
+                    idx_idle_count = 0;
+                }
+                if (!cover_exists || idx_play_count % 128 < 96) {
+                    audio_info = audio_get_info();
                     if (audio_info->filename[0] != '\0') {
                         if (audio_info->title[0] != '\0') {
                             LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, 1, GRAY);
@@ -869,10 +863,9 @@ int main(void)
                     LCD_ShowIcon(8*12, 16*4, ICON16x16_VOLUME, 1, GRAY);
                     sprintf(lcd_str, "%3d", volume_get());
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
-                    data_offset_prv = audio_info->data_offset;
                 } else if (cover_exists && idx_play_count % 128 == 96) {
                     LCD_Clear(BLACK);
-                    BACK_COLOR=BLACK;
+                    //BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0, 0, 0+79, 79, 32);
                     LCD_ShowDimPicture(80, 0, 80+79, 79, 32);
                     LCD_ShowPicture(40, 0, 40+79, 79);
@@ -883,7 +876,7 @@ int main(void)
                 */
                 } else if (cover_exists && idx_play_count % 128 == 127) {
                     LCD_Clear(BLACK);
-                    BACK_COLOR=BLACK;
+                    //BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
                     LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
                 }
@@ -918,10 +911,3 @@ int main(void)
     }
     file_menu_close_dir();
 }
-
-
-
-
-
-
-
