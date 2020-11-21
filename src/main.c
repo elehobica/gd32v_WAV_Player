@@ -6,6 +6,7 @@
 #include "uart_util.h"
 #include "audio_buf.h"
 #include "adc_util.h"
+#include "timer_pwm.h"
 #include "fifo/stack.h"
 
 #define NUM_BTN_HISTORY     30
@@ -158,22 +159,6 @@ void aud_stop(void)
     if (aud_req == 0) {
         aud_req = 2;
     }
-}
-
-void timer_irq_init(void)
-{
-    rcu_periph_clock_enable(RCU_TIMER0);
-    timer_parameter_struct tpa;
-    timer_struct_para_init(&tpa);
-    tpa.prescaler = 1080 - 1;       // prescaler (108MHz -> 100KHz)
-    tpa.period = 100 - 1;           // max value of counting up (100KHz -> 1000Hz = 1ms)
-    tpa.repetitioncounter = 10 - 1; // the num of overflows that issues update IRQ. (1ms*10 = 10ms)
-    timer_init(TIMER0, &tpa);
-    timer_interrupt_enable(TIMER0, TIMER_INT_UP);
-    timer_enable(TIMER0);
-
-    eclic_global_interrupt_enable();
-    eclic_enable_interrupt(TIMER0_UP_IRQn);
 }
 
 void tick_10ms(void)
@@ -400,19 +385,15 @@ void show_battery(uint16_t x, uint16_t y)
     }
 }
 
-void set_backlight_on(void)
+// Optional: Backlight control for PB7 by PWM
+void set_backlight_full(void)
 {
-    // LCD BackLight On (PB7: 1: bright, Hi-Z: dark)
-    rcu_periph_clock_enable(RCU_GPIOB);
-    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
-    PB_OUT(7, 1);
+    timer3_pwm_set_ratio(80);
 }
 
 void set_backlight_dark(void)
 {
-    // LCD BackLight dark (PB7: 1: bright, Hi-Z: dark)
-    rcu_periph_clock_enable(RCU_GPIOB);
-    gpio_init(GPIOB, GPIO_MODE_IN_FLOATING, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
+    timer3_pwm_set_ratio(8);
 }
 
 int main(void)
@@ -465,11 +446,12 @@ int main(void)
     init_uart0();
     printf("\n\r");
 
+    timer3_pwm_init(); // for backlight control
     // init OLED
     Lcd_Init();
     LCD_Clear(BLACK);
     BACK_COLOR=BLACK;
-    set_backlight_on();
+    set_backlight_full();
 
     // Progress Bar display before stable power-on for 1 sec
     // to avoid unintended power-on when Headphone plug in
@@ -546,7 +528,7 @@ int main(void)
         power_off("No Card Found!", 1);
     }
 
-    timer_irq_init();
+    timer0_irq_init(); // for TIMER0_UP_IRQHandler
 
     printf("Longan Player ver %d.%02d\n\r", (int) CFG32(CFG_VERSION)/100, (int) CFG32(CFG_VERSION)%100);
     printf("SD Card File System = %d\n\r", fs.fs_type); // FS_EXFAT = 4
@@ -889,7 +871,7 @@ int main(void)
                 }
                 idx_play_count++;
                 if (idx_idle_count < 10 * 60 * 1) {
-                    set_backlight_on();
+                    set_backlight_full();
                 } else if (idx_idle_count < 10 * 60 * 3) {
                     set_backlight_dark();
                 } else { // Auto Power-off in 3 min
@@ -901,7 +883,7 @@ int main(void)
                     file_menu_idle();
                 }
                 if (idx_idle_count < 10 * 60 * 1) {
-                    set_backlight_on();
+                    set_backlight_full();
                 } else if (stack_get_count(stack) > 0 && audio_finished()) { // Random Play in 1 min if previous play finished with folder through
                     idx_random_open();
                 } else if (idx_idle_count < 10 * 60 * 3) {
