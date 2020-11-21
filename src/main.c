@@ -702,7 +702,6 @@ int main(void)
                     cover_exists = 0;
                     printf("open error: cover.bin %d!\n\r", (int)fr);
                 }
-                LCD_Clear(BLACK);
                 // After audio_play(), Never call file_menu_xxx() functions until it stops.
                 // Otherwise, it causes conflict between main and int routine
                 if (idx_play > 1) {
@@ -712,6 +711,11 @@ int main(void)
                 }
                 idx_play_count = 0;
                 idx_idle_count = 0;
+                LCD_Clear(BLACK);
+                if (cover_exists) {
+                    LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
+                    LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
+                }
             }
             idx_req_open = 0;
         } else if (idx_req_open == 2) { // Random Play
@@ -865,7 +869,6 @@ int main(void)
                     LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
                 } else if (cover_exists && idx_play_count % 128 == 96) {
                     LCD_Clear(BLACK);
-                    //BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0, 0, 0+79, 79, 32);
                     LCD_ShowDimPicture(80, 0, 80+79, 79, 32);
                     LCD_ShowPicture(40, 0, 40+79, 79);
@@ -876,7 +879,6 @@ int main(void)
                 */
                 } else if (cover_exists && idx_play_count % 128 == 127) {
                     LCD_Clear(BLACK);
-                    //BACK_COLOR=BLACK;
                     LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
                     LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
                 }
