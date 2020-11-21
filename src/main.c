@@ -423,13 +423,14 @@ int main(void)
     FRESULT fr;     /* FatFs return code */
     UINT br;
     char lcd_str[8];
+    char *lcd_ptr;
     stack_data_t item;
     int stack_count;
     int i;
     int j;
     uint16_t progress;
     uint16_t idx_play = 0;
-    volatile const audio_info_type *audio_info;
+    const audio_info_type *audio_info;
     uint8_t cur_min, cur_sec;
     //uint8_t ttl_min, ttl_sec;
     // sft_xxx variables are keeping shifting position for string scroll
@@ -762,11 +763,15 @@ int main(void)
                 } else {
                     LCD_ShowIcon(8*0, 16*i, ICON16x16_FILE, 0, GRAY);
                 }
-                LCD_ShowString(8*2, 16*i, (u8 *) "                  ", BLACK);
+                lcd_ptr = file_menu_get_fname_ptr(idx_head+i);
                 if (i == idx_column) {
-                    LCD_ShowStringLn(8*2, 16*i, 8*2, LCD_W-1, (u8 *) file_menu_get_fname_ptr(idx_head+i), GBLUE);
+                    LCD_ShowStringLn(8*2, 16*i, 8*2, LCD_W-1, (u8 *) lcd_ptr, GBLUE);
                 } else {
-                    LCD_ShowStringLn(8*2, 16*i, 8*2, LCD_W-1, (u8 *) file_menu_get_fname_ptr(idx_head+i), WHITE);
+                    LCD_ShowStringLn(8*2, 16*i, 8*2, LCD_W-1, (u8 *) lcd_ptr, WHITE);
+                }
+                j = strlen(lcd_ptr);
+                if (j < 18) {
+                    LCD_ShowStringLn(8*(2+j), 16*i, 8*(2+j), LCD_W-1, (u8 *) "                  ", BLACK);
                 }
             }
             idx_req = 0;
