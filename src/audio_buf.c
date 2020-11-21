@@ -217,8 +217,8 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
     for (i = 0; i < number/4; i++) {
         buf_32b[i*2+0] = (int32_t) swap16b((int32_t) buf_16b[i*2+0] * vol_table[volume]); // L
         buf_32b[i*2+1] = (int32_t) swap16b((int32_t) buf_16b[i*2+1] * vol_table[volume]); // R
-        lvl_l += abs(buf_16b[i*2+0]);
-        lvl_r += abs(buf_16b[i*2+1]);
+        lvl_l += ((int32_t) buf_16b[i*2+0] * buf_16b[i*2+0]) / 32768;
+        lvl_r += ((int32_t) buf_16b[i*2+1] * buf_16b[i*2+1]) / 32768;
     }
     audio_info.lvl_l = get_level(lvl_l/(number/4));
     audio_info.lvl_r = get_level(lvl_r/(number/4));
