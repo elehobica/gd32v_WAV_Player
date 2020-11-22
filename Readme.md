@@ -5,17 +5,18 @@
 ## Features
 * 44.1KHz 16bit Stereo WAV File
 * ES9023 24bit Audio DAC
-* Tag information by LIST chunk
-* Cover Art display by original format binary file
 * ExFAT MicroSD (up to 512GB)
+* Tag information by LIST chunk
+* Cover Art display by RGB565 binary format file
 * Folder/File navigation by ASCII order
-* Remote control by Android Headphone button (3 buttons)
-* DAC volume (utilizing 24bit resolution for playing 16bit Audio data)
+* Control by Android Headphone button (3 buttons)
+* Volume by utilizing DAC 24bit range for playing 16bit Audio data
 * Album unit random play by time out after play finish (Assuming [Artist Folder]/[Album Folder] structure)
 * Resume playback
+* Battery voltage check (Optional: external circuit needed)
 
 ### Not supported
-* Multibyte string file name
+* Multi-byte string file name
 * Unicode Tag information
 * Fast Forward / Fast Rewind
 * Gapless playback
@@ -27,7 +28,7 @@ PA0 also needs to be pulled-up by 2.2Kohm from 3.3V.
 ### FileView Mode
 * Up/Down button to go up/down
 * Center 1 click to get into the folder
-* Center 1 click to play the wav file (go to Play Mode)
+* Center 1 click to play WAV file (go to Play Mode)
 * Center 2 click to go parent folder
 * Center 3 click to random album play (go to Play Mode)
 
@@ -38,14 +39,6 @@ PA0 also needs to be pulled-up by 2.2Kohm from 3.3V.
 
 ### Power On/Off (Optional: external circuit needed)
 Long push Center button
-
-## Timeout Actions
-### Auto Random Play condition
-* 1min after whole files play finished
-
-### Auto Power Off condition (Optional: external circuit needed)
-* 3min idle in FileView mode (except for Auto Rndom Play condition)
-* 3min pause in Play mode
 
 ## DAC ES9023 I2S pins
 

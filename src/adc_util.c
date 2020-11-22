@@ -130,17 +130,17 @@ uint16_t adc1_get_bat_x100(void) // outputs 0 ~ 99
         adc_val += adc1_get(3);
     }
     adc_val /= 5;
-    // assuming register ratio 62kohm : 200kohm, ADC internal impedance 188kohm
-    // voltage ratio = 104 / (62 + 104)
-    adc_val = (adc_val * 3300 * (62+104) / 104 / 4095);
-
-    if (adc_val < 3150) {
+    // assuming register ratio 1kohm : 3.3kohm
+    // voltage ratio = 33 / (10 + 33)
+    adc_val = (adc_val * 3300 * (10+33) / 33 / 4095);
+    //printf("Voltage: %d mV\n\r", adc_val);
+    if (adc_val < 2900) {
         adc_val = 0;
-    } else if (adc_val > 4200) {
+    } else if (adc_val > 4100) {
         adc_val = 99;
     } else {
-        adc_val -= 3150;
-        adc_val = adc_val * 100 / (4200-3150);
+        adc_val -= 2900;
+        adc_val = adc_val * 100 / (4100-2900);
     }
     return adc_val;
 }

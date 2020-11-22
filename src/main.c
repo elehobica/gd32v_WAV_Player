@@ -32,7 +32,7 @@ int version;
 //unsigned char image[160*80*2/2];
 unsigned char *image[8] = {}; // 80*10*2
 uint32_t count10ms = 0;
-uint32_t count_sec = 0;
+uint32_t count1sec = 0;
 uint16_t bat_lvl = 99; // 0 ~ 99
 
 enum mode_enm {
@@ -333,14 +333,6 @@ void tick_100ms(void)
 void tick_1sec(void)
 {
     LEDG(0);
-    if (count_sec > 5) {
-        if (count_sec % 20 == 6) {
-            // Battery value update
-            bat_lvl = adc1_get_bat_x100();
-        }
-    } else {
-        adc1_get_bat_x100();
-    }
 }
 
 void TIMER0_UP_IRQHandler(void)
@@ -352,14 +344,22 @@ void TIMER0_UP_IRQHandler(void)
     if (count10ms++ >= 100) {
         count10ms = 0;
         tick_1sec();
-        count_sec++;
+        count1sec++;
     }
     timer_interrupt_flag_clear(TIMER0, TIMER_INT_FLAG_UP);
 }
 
 void show_battery(uint16_t x, uint16_t y)
 {
+    static int bat_chk_count = 0;
     uint16_t color;
+
+    if (bat_chk_count++ % 100 == 99) {
+        PB_OUT(8, 1); // BATTERY CHECK ON
+        delay_1ms(1);
+        bat_lvl = adc1_get_bat_x100();
+        PB_OUT(8, 0); // BATTERY CHECK OFF
+    }
     if (bat_lvl >= 40) {
         color = 0x0600;
     } else if (bat_lvl >= 10) {
@@ -466,8 +466,14 @@ int main(void)
     PC_OUT(14, 1);
     button_repeat_count = 100; // longer than longest push event to avoid more push event
 
+    // BATTERY CHECK Pin (0: Not check, 1: Check) (PB8)
+    rcu_periph_clock_enable(RCU_GPIOB);
+    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_8);
+    PB_OUT(8, 1);
+
     adc0_init();
     adc1_init();
+    adc1_get_bat_x100(); // Battery check idle run
 
     // Flash config load
     version = CFG32(CFG_VERSION);
