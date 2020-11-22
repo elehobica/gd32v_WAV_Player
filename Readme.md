@@ -1,6 +1,6 @@
 # gd32v_WAV_Player
-![Bare](gd32v_WAV_Player_bare.jpg)
-![Case](gd32v_WAV_Player_with_case.jpg)
+![Bare](doc/gd32v_WAV_Player_bare.jpg)
+![Case](doc/gd32v_WAV_Player_with_case.jpg)
 
 ## Features
 * 44.1KHz 16bit Stereo WAV File
@@ -50,3 +50,11 @@ Long push Center button
 | 13 | MCLK | PA8 |
 | 15 | MUTE_B | PB6 |
 
+## Schematic
+[Sipeed_Longhan_Nano_WAV_Player_schematic.pdf](doc/Sipeed_Longhan_Nano_WAV_Player_schematic.pdf)
+
+## Cover Art File
+* Put "cover.bin" on each Album Folder
+* File Format: 80 Pixels x 80 Pixels RGB565 Binary format
+* [cover.bin example](script/cover.bin)
+* Use [jpg2bin.py](script/jpg2bin.py) to convert into cover.bin
