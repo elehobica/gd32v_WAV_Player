@@ -354,7 +354,7 @@ void show_battery(uint16_t x, uint16_t y)
     static int bat_chk_count = 0;
     uint16_t color;
 
-    if (bat_chk_count++ % 100 == 99) {
+    if (bat_chk_count++ % 100 == 39) {
         PB_OUT(8, 1); // BATTERY CHECK ON
         delay_1ms(1);
         bat_lvl = adc1_get_bat_x100();
@@ -437,6 +437,11 @@ int main(void)
     LEDG(1);
     LEDB(1);
 
+    // BATTERY CHECK Pin (0: Not check, 1: Check) (PB8)
+    rcu_periph_clock_enable(RCU_GPIOB);
+    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_8);
+    PB_OUT(8, 1);
+
     /*
     // Debug Output (PA3 for Proving) by PA_OUT(3, s)
     rcu_periph_clock_enable(RCU_GPIOA);
@@ -465,11 +470,6 @@ int main(void)
     gpio_init(GPIOC, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_14);
     PC_OUT(14, 1);
     button_repeat_count = 100; // longer than longest push event to avoid more push event
-
-    // BATTERY CHECK Pin (0: Not check, 1: Check) (PB8)
-    rcu_periph_clock_enable(RCU_GPIOB);
-    gpio_init(GPIOB, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_8);
-    PB_OUT(8, 1);
 
     adc0_init();
     adc1_init();
