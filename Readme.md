@@ -1,8 +1,7 @@
 # gd32v_WAV_Player
-![Bare](doc/gd32v_WAV_Player_bare.jpg)
-![Case](doc/gd32v_WAV_Player_with_case.jpg)
-
 ## Features
+### Supported
+* Sipeed Longan Nano: 128KB Flash/32KB SRAM
 * 44.1KHz 16bit Stereo WAV File
 * ES9023 24bit Audio DAC
 * ExFAT MicroSD (up to 512GB)
@@ -16,6 +15,7 @@
 * Battery voltage check (Optional: external circuit needed)
 
 ### Not supported
+* Sipeed Longan Nano: 64KB Flash/20KB SRAM
 * Multi-byte string file name
 * Unicode Tag information
 * Fast Forward / Fast Rewind
@@ -58,3 +58,9 @@ Long push Center button
 * File Format: 80 Pixels x 80 Pixels RGB565 Binary format
 * [cover.bin example](script/cover.bin)
 * Use [jpg2bin.py](script/jpg2bin.py) to convert into cover.bin
+
+## Prototype Example
+[Scene1](doc/gd32v_WAV_Player_bare.jpg)
+[Scene2](doc/gd32v_WAV_Player_inside_case.jpg)
+[Scene3](doc/gd32v_WAV_Player_with_case.jpg)
+
