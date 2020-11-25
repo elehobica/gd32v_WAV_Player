@@ -59,6 +59,11 @@ Long push Center button
 * [cover.bin example](script/cover.bin)
 * Use [jpg2bin.py](script/jpg2bin.py) to convert into cover.bin
 
+## Opening Logo File
+* Put "logo.bin" on root Folder
+* File Format: 160 Pixels x 80 Pixels RGB565 Binary format
+* [cover.bin example](script/logo.bin)
+
 ## Prototype Example
 [Scene1](doc/gd32v_WAV_Player_bare.jpg)
 [Scene2](doc/gd32v_WAV_Player_inside_case.jpg)
