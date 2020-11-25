@@ -62,7 +62,7 @@ Long push Center button
 ## Opening Logo File
 * Put "logo.bin" on root Folder
 * File Format: 160 Pixels x 80 Pixels RGB565 Binary format
-* [cover.bin example](script/logo.bin)
+* [logo.bin example](script/logo.bin)
 
 ## Prototype Example
 [Scene1](doc/gd32v_WAV_Player_bare.jpg)
