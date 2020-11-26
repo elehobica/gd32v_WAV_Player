@@ -465,7 +465,7 @@ int main(void)
         delay_1ms(25);
     }
 
-    // Power On Pin (PC14)
+    // Power-Keep Pin (PC14)
     rcu_periph_clock_enable(RCU_GPIOC);
     gpio_init(GPIOC, GPIO_MODE_OUT_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_14);
     PC_OUT(14, 1);
