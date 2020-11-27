@@ -205,28 +205,19 @@ void power_off(char *msg, int is_error)
     PB_OUT(6, 0);
 
     // LED signal
-    LCD_Clear(BLACK);
     if (is_error) {
-        LCD_ShowString(24,  0, (u8 *)(msg), BLACK);
-        LCD_ShowString(24, 16, (u8 *)(msg), BLUE);
-        LCD_ShowString(24, 32, (u8 *)(msg), BRED);
-        LCD_ShowString(24, 48, (u8 *)(msg), GBLUE);
-        LCD_ShowString(24, 64, (u8 *)(msg), RED);
-        /*
-        for (i = 0; i < 10; i++) {
-            LEDR_TOG;
-            LEDG_TOG;
-            delay_1ms(200);
-            LEDB_TOG;
-            delay_1ms(200);
-        }
-        */
-        // LED Red Light
-        LEDR(0);
-        delay_1ms(1000);
+        LEDR(0); // LED Red Light
     } else {
-        // LED Green Light
-        LEDG(0);
+        LEDG(0); // LED Green Light
+    }
+    LCD_Clear(BLACK);
+    if (strlen(msg) > 0) {
+        LCD_ShowString(24,  0, (u8 *) msg, BLACK);
+        LCD_ShowString(24, 16, (u8 *) msg, BLUE);
+        LCD_ShowString(24, 32, (u8 *) msg, BRED);
+        LCD_ShowString(24, 48, (u8 *) msg, GBLUE);
+        LCD_ShowString(24, 64, (u8 *) msg, RED);
+        delay_1ms(1000);
     }
     PC_OUT(14, 0); // Power Off
     while (1);
@@ -381,7 +372,7 @@ void show_battery(uint16_t x, uint16_t y)
     LCD_Fill(x+4, y+13-bat_lvl/10, x+11, y+13, color);
 
     if (bat_lvl < 3) { // Low Battery
-        power_off("Low Battery!", 1);
+        power_off("Low Battery!", 0);
     }
 }
 
