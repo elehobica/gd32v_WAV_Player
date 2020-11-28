@@ -2,10 +2,11 @@
 ## Features
 ### Supported
 * Sipeed Longan Nano: 128KB Flash/32KB SRAM
-* 44.1KHz 16bit Stereo WAV File
+* Lilygo TTGO T-Display-GD32: 128KB Flash/32KB SRAM
 * ES9023 24bit Audio DAC
 * ExFAT MicroSD (up to 512GB)
-* Tag information by LIST chunk
+* 44.1KHz 16bit Stereo WAV File
+* Tag information by LIST chunk in WAV File
 * Cover Art display by RGB565 binary format file
 * Folder/File navigation by ASCII order
 * Control by Android Headphone button (3 buttons)
@@ -20,6 +21,27 @@
 * Unicode Tag information
 * Fast Forward / Fast Rewind
 * Gapless playback
+
+## Board Configuration
+* Edit [board_conf.h](include/board_conf.h) to choose your board
+
+## Pin Assign
+| Longan Nano Pin | Attribute | Connection |
+----|----|----
+| PA0 | ADC0 | Android Head Phone MIC (Button) |
+| PA1 | GPIO | LED_G |
+| PA2 | GPIO | LED_B |
+| PA3 | ADC1 | Battery Voltage |
+| PA8 | CK_OUT0 | ES9023 MCLK (13) |
+| PA15 | I2S2_WS | ES9023 LRCK (2) |
+| PB3 | I2S2_CK | ES9023 BCK (1) |
+| PB5 | I2S2_SD | ES9023 SDI (3) |
+| PB6 | GPIO | ES9023 MUTE_B (15) |
+| PB7 | TIM3_CH1 | LCD Backlight Control (modify Longan Nano) |
+| PB8 | GPIO | Battery Check |
+| PB10 | TIM1_CH2 | LCD Backlight Control (Lilygo GD32) |
+| PC13 | GPIO | LED_R |
+| PC14 | GPIO | Power Keep |
 
 ## Button Control Guide
 Connect MIC pin of Android headphone remote control with 3 buttons to PA0 pin of Longan Nano.
@@ -40,16 +62,6 @@ PA0 also needs to be pulled-up by 2.2Kohm from 3.3V.
 ### Power On/Off (Optional: external circuit needed)
 Long push Center button
 
-## DAC ES9023 I2S pins
-
-| ES9023 Pin No. | ES9023 Pin Name | Longan Nano Pin |
-----|----|---- 
-| 1 | BCK | PB3 |
-| 2 | LRCK | PA15 |
-| 3 | SDI | PB5 |
-| 13 | MCLK | PA8 |
-| 15 | MUTE_B | PB6 |
-
 ## Schematic
 [Sipeed_Longhan_Nano_WAV_Player_schematic.pdf](doc/Sipeed_Longhan_Nano_WAV_Player_schematic.pdf)
 
@@ -60,12 +72,20 @@ Long push Center button
 * Use [jpg2bin.py](script/jpg2bin.py) to convert into cover.bin
 
 ## Opening Logo File
+### Sipeed Longan Nano
 * Put "logo.bin" on root Folder
 * File Format: 160 Pixels x 80 Pixels RGB565 Binary format
-* [logo.bin example](script/logo.bin)
+* [logo.bin example](resource/logo.bin)
+### Lilygo TTGO T-Display-GD32
+* Put "lilygo_logo.bin" on root Folder
+* File Format: 240 Pixels x 135 Pixels x n Frames RGB565 Binary format
+* [lilygo_logo.bin example](resource/lilygo_logo.bin)
 
 ## Prototype Example
+### Sipeed Longan Nano
 [Scene1](doc/gd32v_WAV_Player_bare.jpg)
 [Scene2](doc/gd32v_WAV_Player_inside_case.jpg)
 [Scene3](doc/gd32v_WAV_Player_with_case.jpg)
-
+### Lilygo TTGO T-Display-GD32
+[Scene4](doc/gd32v_WAV_Player_lilygo_gd32.jpg)
+[Scene5](doc/gd32v_WAV_Player_lilygo_gd32_fileview.jpg)

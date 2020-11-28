@@ -1,11 +1,14 @@
 #ifndef __LCD_H
 #define __LCD_H		
 
+#include "board_conf.h"
 #include "systick.h"
 #include "stdlib.h"	
 #include "gd32vf103_gpio.h"
 
+#if defined(BOARD_SIPEED_LONGAN_NANO)
 #define USE_HORIZONTAL 2  //设置横屏或者竖屏显示 0或1为竖屏 2或3为横屏
+#define RGB_ORDER 1 // 0: RGB, 1: BGR
 #define HAS_BLK_CNTL    0
 
 #if USE_HORIZONTAL==0||USE_HORIZONTAL==1
@@ -14,6 +17,19 @@
 #else
 #define LCD_W 160
 #define LCD_H 80
+#endif
+#elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+#define USE_HORIZONTAL 2  //设置横屏或者竖屏显示 0或1为竖屏 2或3为横屏
+#define RGB_ORDER 1 // 0: RGB, 1: BGR
+#define HAS_BLK_CNTL    0
+
+#if USE_HORIZONTAL==0||USE_HORIZONTAL==1
+#define LCD_W 135
+#define LCD_H 240
+#else
+#define LCD_W 240
+#define LCD_H 135
+#endif
 #endif
 
 typedef unsigned char u8;

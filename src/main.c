@@ -8,6 +8,71 @@
 #include "adc_util.h"
 #include "timer_pwm.h"
 #include "fifo/stack.h"
+#include "board_conf.h"
+
+#if defined(BOARD_SIPEED_LONGAN_NANO)
+#define BLANK_LINE ((uint8_t *) "                    ")
+#define NUM_IDX_ITEMS 5
+// Cover Art
+const uint16_t ca_x = 8*0;
+const uint16_t ca_y = 16*0;
+// Title
+const uint16_t ti_x = 8*0;
+const uint16_t ti_y = 16*0;
+// Artist
+const uint16_t ar_x = 8*0;
+const uint16_t ar_y = 16*1;
+// Album
+const uint16_t al_x = 8*0;
+const uint16_t al_y = 16*2;
+// Level Meter
+const uint16_t lm_x = 8*0;
+const uint16_t lm_y = 16*3;
+// Progress Bar
+const uint16_t pb_x = 8*0;
+const uint16_t pb_y = 16*4-1;
+const uint16_t pb_h = 1;
+// Track Number
+const uint16_t tn_x = 8*0;
+const uint16_t tn_y = 16*4;
+// Elapsed Time
+const uint16_t et_x = 8*5;
+const uint16_t et_y = 16*4;
+// Volume
+const uint16_t vl_x = 8*12;
+const uint16_t vl_y = 16*4;
+#elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+#define BLANK_LINE ((uint8_t *) "                              ")
+#define NUM_IDX_ITEMS 8
+// Cover Art
+const uint16_t ca_x = 8*0;
+const uint16_t ca_y = 16*0;
+// Title
+const uint16_t ti_x = 8*10;
+const uint16_t ti_y = 16*1;
+// Artist
+const uint16_t ar_x = 8*10;
+const uint16_t ar_y = 16*2;
+// Album
+const uint16_t al_x = 8*10;
+const uint16_t al_y = 16*3;
+// Level Meter
+const uint16_t lm_x = 8*0;
+const uint16_t lm_y = 16*5+8+2;
+// Progress Bar
+const uint16_t pb_x = 8*0;
+const uint16_t pb_y = 16*7+2;
+const uint16_t pb_h = 2;
+// Track Number
+const uint16_t tn_x = 8*0;
+const uint16_t tn_y = LCD_H-16;
+// Elapsed Time
+const uint16_t et_x = 8*5;
+const uint16_t et_y = LCD_H-16;
+// Volume
+const uint16_t vl_x = 8*22;
+const uint16_t vl_y = LCD_H-16;
+#endif
 
 #define NUM_BTN_HISTORY     30
 #define FLASH_PAGE_SIZE     0x400
@@ -81,17 +146,17 @@ void idx_random_open(void)
 void idx_inc(void)
 {
     if (idx_req != 1) {
-        if (idx_head >= file_menu_get_size() - 5 && idx_column == 4) return;
+        if (idx_head >= file_menu_get_size() - NUM_IDX_ITEMS && idx_column == NUM_IDX_ITEMS-1) return;
         if (idx_head + idx_column + 1 >= file_menu_get_size()) return;
         idx_req = 1;
         idx_column++;
-        if (idx_column >= 5) {
-            if (idx_head + 5 >= file_menu_get_size() - 5) {
-                idx_column = 4;
+        if (idx_column >= NUM_IDX_ITEMS) {
+            if (idx_head + NUM_IDX_ITEMS >= file_menu_get_size() - NUM_IDX_ITEMS) {
+                idx_column = NUM_IDX_ITEMS-1;
                 idx_head++;
             } else {
                 idx_column = 0;
-                idx_head += 5;
+                idx_head += NUM_IDX_ITEMS;
             }
         }
     }
@@ -103,12 +168,12 @@ void idx_dec(void)
         if (idx_head == 0 && idx_column == 0) return;
         idx_req = 1;
         if (idx_column == 0) {
-            if (idx_head - 5 < 0) {
+            if (idx_head - NUM_IDX_ITEMS < 0) {
                 idx_column = 0;
                 idx_head--;
             } else {
-                idx_column = 4;
-                idx_head -= 5;
+                idx_column = NUM_IDX_ITEMS-1;
+                idx_head -= NUM_IDX_ITEMS;
             }
         } else {
             idx_column--;
@@ -119,15 +184,15 @@ void idx_dec(void)
 void idx_fast_inc(void)
 {
     if (idx_req != 1) {
-        if (idx_head >= file_menu_get_size() - 5 && idx_column == 4) return;
+        if (idx_head >= file_menu_get_size() - NUM_IDX_ITEMS && idx_column == NUM_IDX_ITEMS-1) return;
         if (idx_head + idx_column + 1 >= file_menu_get_size()) return;
-        if (file_menu_get_size() < 5) {
+        if (file_menu_get_size() < NUM_IDX_ITEMS) {
             idx_inc();
-        } else if (idx_head + 5 >= file_menu_get_size() - 5) {
-            idx_head = file_menu_get_size() - 5;
+        } else if (idx_head + NUM_IDX_ITEMS >= file_menu_get_size() - NUM_IDX_ITEMS) {
+            idx_head = file_menu_get_size() - NUM_IDX_ITEMS;
             idx_inc();
         } else {
-            idx_head += 5;
+            idx_head += NUM_IDX_ITEMS;
         }
         idx_req = 1;
     }
@@ -137,11 +202,11 @@ void idx_fast_dec(void)
 {
     if (idx_req != 1) {
         if (idx_head == 0 && idx_column == 0) return;
-        if (idx_head - 5 < 0) {
+        if (idx_head - NUM_IDX_ITEMS < 0) {
             idx_head = 0;
             idx_dec();
         } else {
-            idx_head -= 5;
+            idx_head -= NUM_IDX_ITEMS;
         }
         idx_req = 1;
     } 
@@ -170,6 +235,9 @@ void power_off(char *msg, int is_error)
 {
     int i;
     stack_data_t item;
+
+    // timer tick stop
+    timer0_irq_stop();
     // save flash config
     if (!is_error) {
         unsigned int *data = (unsigned int *) malloc(FLASH_PAGE_SIZE - CFG_SIZE);
@@ -379,12 +447,20 @@ void show_battery(uint16_t x, uint16_t y)
 // Optional: Backlight control for PB7 by PWM
 void set_backlight_full(void)
 {
+    #if defined(BOARD_SIPEED_LONGAN_NANO)
     timer3_pwm_set_ratio(80);
+    #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+    timer1_pwm_set_ratio(50);
+    #endif
 }
 
 void set_backlight_dark(void)
 {
+    #if defined(BOARD_SIPEED_LONGAN_NANO)
     timer3_pwm_set_ratio(8);
+    #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+    timer1_pwm_set_ratio(5);
+    #endif
 }
 
 int main(void)
@@ -394,7 +470,7 @@ int main(void)
     FIL fil;
     FRESULT fr;     /* FatFs return code */
     UINT br;
-    char lcd_str[8];
+    char lcd_str[16];
     char *lcd_ptr;
     stack_data_t item;
     int stack_count;
@@ -404,7 +480,7 @@ int main(void)
     uint16_t idx_play = 0;
     const audio_info_type *audio_info;
     uint8_t cur_min, cur_sec;
-    //uint8_t ttl_min, ttl_sec;
+    uint8_t ttl_min, ttl_sec;
     // sft_xxx variables are keeping shifting position for string scroll
     uint16_t sft_ttl = 0;
     uint16_t sft_art = 0;
@@ -442,7 +518,13 @@ int main(void)
     init_uart0();
     printf("\n\r");
 
-    timer3_pwm_init(); // for backlight control
+    // for backlight control
+    #if defined(BOARD_SIPEED_LONGAN_NANO)
+    timer3_pwm_init();
+    #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+    timer1_pwm_init();
+    #endif
+
     // init OLED
     Lcd_Init();
     LCD_Clear(BLACK);
@@ -452,7 +534,7 @@ int main(void)
     // Progress Bar display before stable power-on for 1 sec
     // to avoid unintended power-on when Headphone plug in
     for (i = 0; i < 40; i++) {
-        LCD_Fill(i*4, 4*16+8, i*4+3, 4*16+15, GRAY);
+        LCD_Fill(i*LCD_W/40, LCD_H-8, (i+1)*LCD_W/40-1, LCD_H-1, GRAY);
         delay_1ms(25);
     }
 
@@ -525,8 +607,6 @@ int main(void)
         power_off("No Card Found!", 1);
     }
 
-    timer0_irq_init(); // for TIMER0_UP_IRQHandler
-
     printf("Longan Player ver %d.%02d\n\r", (int) CFG32(CFG_VERSION)/100, (int) CFG32(CFG_VERSION)%100);
     printf("SD Card File System = %d\n\r", fs.fs_type); // FS_EXFAT = 4
 
@@ -535,6 +615,7 @@ int main(void)
     for (i = 0; i < 8; i++) {
         image[i] = (unsigned char *) malloc(160*5*2);
     }
+    #if defined(BOARD_SIPEED_LONGAN_NANO)
     fr = f_open(&fil, "logo.bin", FA_READ);
     if (fr) {
         printf("open error: logo.bin %d!\n\r", (int)fr);
@@ -543,9 +624,26 @@ int main(void)
             for (j = 0; j < 8; j++) {
                 fr = f_read(&fil, image[j], 160*5*2, &br);
             }
-            LCD_ShowPicture(0, 40*i, 159, 40*(i+1)-1);
+            LCD_ShowPicture((LCD_W-160)/2+0, (LCD_H-80)/2+40*i, (LCD_W-160)/2+159, (LCD_H-80)/2+40*(i+1)-1);
         }
     }
+    #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+    fr = f_open(&fil, "lilygo_logo.bin", FA_READ);
+    if (fr) {
+        printf("open error: lilygo_logo.bin %d!\n\r", (int)fr);
+    } else {
+        LCD_Address_Set(0, 0, 239, 134);
+        j = 0;
+        while (j < 240*135*2*10) { // 10 Frames
+            fr = f_read(&fil, image[0], 160*5*2, &br);
+            for (i = 0; i < br; i++) {
+                LCD_WR_DATA8(image[0][i]);
+                j++;
+            }
+        }
+        f_close(&fil);
+    }
+    #endif
     delay_1ms(500);
     for (i = 0; i < 8; i++) {
         free(image[i]);
@@ -555,6 +653,8 @@ int main(void)
 
     // Clear Logo
     LCD_Clear(BLACK);
+
+    timer0_irq_init(); // for TIMER0_UP_IRQHandler
 
     // DAC MCLK out from CK_OUT0 (PA8)
     gpio_init(GPIOA, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_8);
@@ -694,8 +794,12 @@ int main(void)
                 idx_idle_count = 0;
                 LCD_Clear(BLACK);
                 if (cover_exists) {
-                    LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
-                    LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
+                    #if defined(BOARD_SIPEED_LONGAN_NANO)
+                    LCD_ShowDimPicture(ca_x, ca_y, ca_x+79, ca_y+79, 48);
+                    LCD_ShowDimPicture(ca_x+80, ca_y, ca_x+80+79, ca_y+79, 48);
+                    #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+                    LCD_ShowPicture(ca_x, ca_y, ca_x+79, ca_y+79);
+                    #endif
                 }
             }
             idx_req_open = 0;
@@ -733,9 +837,9 @@ int main(void)
                 idx_req_open = 1;
             }
         } else if (idx_req) {
-            for (i = 0; i < 5; i++) {
+            for (i = 0; i < NUM_IDX_ITEMS; i++) {
                 if (idx_head+i >= file_menu_get_size()) {
-                    LCD_ShowString(8*0, 16*i, (u8 *) "                    ", BLACK);
+                    LCD_ShowString(8*0, 16*i, BLANK_LINE, BLACK);
                     continue;
                 }
                 if (file_menu_is_dir(idx_head+i)) {
@@ -750,8 +854,8 @@ int main(void)
                     LCD_ShowStringLn(8*2, 16*i, 8*2, LCD_W-1, (u8 *) lcd_ptr, WHITE);
                 }
                 j = strlen(lcd_ptr);
-                if (j < 18) {
-                    LCD_ShowStringLn(8*(2+j), 16*i, 8*(2+j), LCD_W-1, (u8 *) "                  ", BLACK);
+                if (j < (LCD_W)/8-2) {
+                    LCD_ShowStringLn(8*(2+j), 16*i, 8*(2+j), LCD_W-1, BLANK_LINE, BLACK);
                 }
             }
             idx_req = 0;
@@ -762,8 +866,12 @@ int main(void)
                     if (audio_play(0)) { // play next file -> prepare to change to next title info
                         LCD_Clear(BLACK);
                         if (cover_exists) {
-                            LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
-                            LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
+                            #if defined(BOARD_SIPEED_LONGAN_NANO)
+                            LCD_ShowDimPicture(ca_x, ca_y, ca_x+79, ca_y+79, 48);
+                            LCD_ShowDimPicture(ca_x+80, ca_y, ca_x+80+79, ca_y+79, 48);
+                            #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+                            LCD_ShowPicture(ca_x, ca_y, ca_x+79, ca_y+79);
+                            #endif
                         }
                         sft_ttl = 0;
                         sft_art = 0;
@@ -784,88 +892,103 @@ int main(void)
                 } else {
                     idx_idle_count = 0;
                 }
+                #if defined(BOARD_SIPEED_LONGAN_NANO)
                 if (!cover_exists || idx_play_count % 128 < 96) {
+                #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+                if (1) {
+                #endif
                     audio_info = audio_get_info();
                     if (audio_info->filename[0] != '\0') {
                         if (audio_info->title[0] != '\0') {
-                            LCD_ShowIcon(8*0, 16*0, ICON16x16_TITLE, 1, GRAY);
-                            LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, idx_play_count);
+                            LCD_ShowIcon(ti_x, ti_y, ICON16x16_TITLE, 1, GRAY);
+                            LCD_Scroll_ShowString(ti_x+16, ti_y, ti_x+16, LCD_W-1, (u8 *) audio_info->title, LIGHTBLUE, &sft_ttl, idx_play_count);
                         } else if (audio_info->filename[0] != '\0') {
-                            LCD_ShowIcon(8*0, 16*0, ICON16x16_FILE, 1, GRAY);
-                            LCD_Scroll_ShowString(8*2, 16*0, 8*2, LCD_W-1, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, idx_play_count);
+                            LCD_ShowIcon(ti_x, ti_y, ICON16x16_FILE, 1, GRAY);
+                            LCD_Scroll_ShowString(ti_x+16, ti_y, ti_x+16, LCD_W-1, (u8 *) audio_info->filename, LIGHTBLUE, &sft_ttl, idx_play_count);
                         }
                         if (audio_info->artist[0] != '\0') {
-                            LCD_ShowIcon(8*0, 16*1, ICON16x16_ARTIST, 1, GRAY);
-                            LCD_Scroll_ShowString(8*2, 16*1, 8*2, LCD_W-1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, idx_play_count);
+                            LCD_ShowIcon(ar_x, ar_y, ICON16x16_ARTIST, 1, GRAY);
+                            LCD_Scroll_ShowString(ar_x+16, ar_y, ar_x+16, LCD_W-1, (u8 *) audio_info->artist, LIGHTGREEN, &sft_art, idx_play_count);
                         }
                         if (audio_info->album[0] != '\0') {
-                            LCD_ShowIcon(8*0, 16*2, ICON16x16_ALBUM, 1, GRAY);
-                            LCD_Scroll_ShowString(8*2, 16*2, 8*2, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
+                            LCD_ShowIcon(al_x, al_y, ICON16x16_ALBUM, 1, GRAY);
+                            LCD_Scroll_ShowString(al_x+16, al_y, al_x+16, LCD_W-1, (u8 *) audio_info->album, GRAYBLUE, &sft_alb, idx_play_count);
                         }
                         // Level Meter L
-                        lvl_l = (LCD_W-1)*audio_info->lvl_l/100;
-                        LCD_Fill(8*0, 16*3+0, lvl_l, 16*3+0 + 4, DARKGRAY);
-                        //LCD_Fill(lvl_l, 16*3+0, LCD_W-1, 16*3+0 + 4, BLACK);
+                        lvl_l = (LCD_W-lm_x-1)*audio_info->lvl_l/100;
+                        LCD_Fill(lm_x, lm_y, lm_x+lvl_l, lm_y+4, DARKGRAY);
+                        #if defined(BOARD_SIPEED_LONGAN_NANO)
                         if (lvl_l < 80) {
-                            LCD_ShowDimPictureOfs(lvl_l, 16*3+0, 79, 16*3+0 + 4, 48, lvl_l, 16*3+0);
-                            LCD_ShowDimPictureOfs(80, 16*3+0, 159, 16*3+0 + 4, 48, 0, 16*3+0);
+                            LCD_ShowDimPictureOfs(lm_x+lvl_l, lm_y, 79, lm_y+4, 48, lm_x+lvl_l, lm_y);
+                            LCD_ShowDimPictureOfs(80, lm_y, 159, lm_y+4, 48, 0, lm_y);
                         } else {
-                            LCD_ShowDimPictureOfs(lvl_l, 16*3+0, 159, 16*3+0 + 4, 48, lvl_l-80, 16*3+0);
+                            LCD_ShowDimPictureOfs(lm_x+lvl_l, lm_y, 159, lm_y+4, 48, lm_x+lvl_l-80, lm_y);
                         }
+                        #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+                        LCD_Fill(lm_x+lvl_l, lm_y, LCD_W-1, lm_y+4, BLACK);
+                        #endif
                         // Level Meter R
-                        lvl_r = (LCD_W-1)*audio_info->lvl_r/100;
-                        LCD_Fill(8*0, 16*3+8, lvl_r, 16*3+8 + 4, DARKGRAY);
-                        //LCD_Fill(lvl_r, 16*3+8, LCD_W-1, 16*3+8 + 4, BLACK);
+                        lvl_r = (LCD_W-lm_x-1)*audio_info->lvl_r/100;
+                        LCD_Fill(lm_x, lm_y+8, lm_x+lvl_r, lm_y+8+4, DARKGRAY);
+                        #if defined(BOARD_SIPEED_LONGAN_NANO)
                         if (lvl_r < 80) {
-                            LCD_ShowDimPictureOfs(lvl_r, 16*3+8, 79, 16*3+8 + 4, 48, lvl_r, 16*3+8);
-                            LCD_ShowDimPictureOfs(80, 16*3+8, 159, 16*3+8 + 4, 48, 0, 16*3+8);
+                            LCD_ShowDimPictureOfs(lm_x+lvl_r, lm_y+8, 79, lm_y+8+4, 48, lm_x+lvl_r, lm_y+8);
+                            LCD_ShowDimPictureOfs(80, lm_y+8, 159, lm_y+8+4, 48, 0, lm_y+8);
                         } else {
-                            LCD_ShowDimPictureOfs(lvl_r, 16*3+8, 159, 16*3+8 + 4, 48, lvl_r-80, 16*3+8);
+                            LCD_ShowDimPictureOfs(lm_x+lvl_r, lm_y+8, 159, lm_y+8+4, 48, lm_x+lvl_r-80, lm_y+8);
                         }
+                        #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+                        LCD_Fill(lm_x+lvl_r, lm_y+8, LCD_W-1, lm_y+8+4, BLACK);
+                        #endif
                         // Progress Bar
                         if (audio_info->data_size != 0) {
-                            progress = 159UL * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
-                            LCD_DrawLine(progress, 16*4-1, 159, 16*4-1, GRAY);
-                            LCD_DrawLine(0, 16*4-1, progress, 16*4-1, BLUE);
+                            progress = (LCD_W-pb_x-1) * (audio_info->data_offset/1024) / (audio_info->data_size/1024); // for avoid overflow
+                            LCD_Fill(pb_x+progress, pb_y, LCD_W-1, pb_y+pb_h-1, DARKGRAY);
+                            LCD_Fill(pb_x, pb_y, pb_x+progress, pb_y+pb_h-1, BLUE);
                         }
                         // Track Number
                         if (audio_info->number[0] != '\0') {
-                            LCD_Scroll_ShowString(8*0, 16*4, 8*0, 8*5-1, (u8 *) audio_info->number, GRAY, &sft_num, idx_play_count);
+                            LCD_Scroll_ShowString(tn_x, tn_y, tn_x, tn_y+15, (u8 *) audio_info->number, GRAY, &sft_num, idx_play_count);
                         }
                         // Elapsed Time
                         cur_min = (audio_info->data_offset/44100/4) / 60;
                         cur_sec = (audio_info->data_offset/44100/4) % 60;
-                        /*
                         ttl_min = (audio_info->data_size/44100/4) / 60;
                         ttl_sec = (audio_info->data_size/44100/4) % 60;
-                        sprintf(lcd_str, "%3d:%02d/%3d:%02d VOL%3d", cur_min, cur_sec, ttl_min, ttl_sec, volume_get());
-                        LCD_ShowString(8*0, 16*4, (u8 *) lcd_str, WHITE);
-                        */
                         if (!audio_is_pausing() || idx_play_count % 8 < 6) { // Elapsed Time blinks when pausing
+                            #if defined(BOARD_SIPEED_LONGAN_NANO)
                             sprintf(lcd_str, "%3d:%02d", cur_min, cur_sec);
-                            LCD_ShowString(8*5, 16*4, (u8 *) lcd_str, GRAY);
+                            LCD_ShowString(et_x, et_y, (u8 *) lcd_str, GRAY);
+                            #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+                            sprintf(lcd_str, "%3d:%02d / %d:%02d", cur_min, cur_sec, ttl_min, ttl_sec);
+                            LCD_ShowString(et_x, et_y, (u8 *) lcd_str, GRAY);
+                            #endif
                         } else {
-                            LCD_ShowString(8*5, 16*4, (u8 *) "      ", GRAY);
+                            #if defined(BOARD_SIPEED_LONGAN_NANO)
+                            LCD_ShowString(et_x, et_y, (u8 *) "      ", GRAY);
+                            #elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+                            LCD_ShowString(et_x, et_y, (u8 *) "              ", GRAY);
+                            #endif
                         }
                     }
                     // Volume
-                    LCD_ShowIcon(8*12, 16*4, ICON16x16_VOLUME, 1, GRAY);
+                    LCD_ShowIcon(vl_x, vl_y, ICON16x16_VOLUME, 1, GRAY);
                     sprintf(lcd_str, "%3d", volume_get());
-                    LCD_ShowString(8*14, 16*4, (u8 *) lcd_str, GRAY);
+                    LCD_ShowString(vl_x+16, vl_y, (u8 *) lcd_str, GRAY);
                 } else if (cover_exists && idx_play_count % 128 == 96) {
                     LCD_Clear(BLACK);
-                    LCD_ShowDimPicture(0, 0, 0+79, 79, 32);
-                    LCD_ShowDimPicture(80, 0, 80+79, 79, 32);
-                    LCD_ShowPicture(40, 0, 40+79, 79);
+                    LCD_ShowDimPicture(ca_x, ca_y, ca_x+79, ca_y+79, 32);
+                    LCD_ShowDimPicture(ca_x+80, ca_y, ca_x+80+79, ca_y+79, 32);
+                    LCD_ShowPicture(ca_x+40, ca_y+0, ca_x+40+79, ca_y+79);
                 /*
                 } else if (cover_exists && idx_play_count % 128 >= 113 && idx_play_count % 128 < 127) {
                     // Cover Art Fade out
-                    LCD_ShowDimPicture(40, 0, 40+79, 79, (128 - (idx_play_count % 128))*16);
+                    LCD_ShowDimPicture(ca_x+40, ca_y, ca_x+40+79, ca_y+79, (128 - (idx_play_count % 128))*16);
                 */
                 } else if (cover_exists && idx_play_count % 128 == 127) {
                     LCD_Clear(BLACK);
-                    LCD_ShowDimPicture(0, 0, 0+79, 79, 48);
-                    LCD_ShowDimPicture(80, 0, 80+79, 79, 48);
+                    LCD_ShowDimPicture(ca_x, ca_y, ca_x+79, ca_y+79, 48);
+                    LCD_ShowDimPicture(ca_x+80, ca_y, ca_x+80+79, ca_y+79, 48);
                 }
                 idx_play_count++;
                 if (idx_idle_count < 10 * 60 * 1) {
@@ -893,7 +1016,7 @@ int main(void)
         }
         idx_play = 0;
         // Battery
-        show_battery(8*18, 16*4);
+        show_battery(LCD_W-16, LCD_H-16);
         delay_1ms(100);
     }
     file_menu_close_dir();

@@ -1,6 +1,37 @@
 #include "lcd/lcd.h"
 #include "lcd/oledfont.h"
 #include "lcd/bmp.h"
+
+#if defined(BOARD_LILYGO_T_DISPLAY_GD32)
+#define ST7789_SLPOUT       0x11
+#define ST7789_NORON        0x13
+#define ST7789_MADCTL       0x36      // Memory data access control
+#define TFT_MAD_RGB         0x08
+#define ST7789_COLMOD       0x3A
+#define ST7789_PORCTRL      0xB2      // Porch control
+#define ST7789_GCTRL        0xB7      // Gate control
+#define ST7789_VCOMS        0xBB      // VCOMS setting
+#define ST7789_LCMCTRL      0xC0      // LCM control
+#define ST7789_VDVVRHEN     0xC2      // VDV and VRH command enable
+#define ST7789_VRHS         0xC3      // VRH set
+#define ST7789_VDVSET       0xC4      // VDV setting
+#define ST7789_FRCTR2       0xC6      // FR Control 2
+#define ST7789_PWCTRL1      0xD0      // Power control 1
+#define ST7789_PVGAMCTRL    0xE0      // Positive voltage gamma control
+#define ST7789_NVGAMCTRL    0xE1      // Negative voltage gamma control
+#define ST7789_INVON        0x21
+#define ST7789_CASET        0x2A
+#define ST7789_RASET        0x2B
+#define ST7789_RAMWR        0x2C
+#define ST7789_DISPOFF      0x28
+#define ST7789_DISPON       0x29
+#define TFT_MAD_COLOR_ORDER TFT_MAD_RGB
+#define TFT_MAD_MY          0x80
+#define TFT_MAD_MX          0x40
+#define TFT_MAD_MV          0x20
+#define TFT_MAD_ML          0x10
+#endif
+
 u16 BACK_COLOR;   //背景色
 extern unsigned char *image[8]; // 80*10*2
 
@@ -85,6 +116,7 @@ void LCD_WR_REG(u8 dat)
 ******************************************************************************/
 void LCD_Address_Set(u16 x1,u16 y1,u16 x2,u16 y2)
 {
+#if defined(BOARD_SIPEED_LONGAN_NANO)
 	if(USE_HORIZONTAL==0)
 	{
 		LCD_WR_REG(0x2a);//列地址设置
@@ -125,6 +157,48 @@ void LCD_Address_Set(u16 x1,u16 y1,u16 x2,u16 y2)
 		LCD_WR_DATA(y2+26);
 		LCD_WR_REG(0x2c);//储存器写
 	}
+#elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+	if(USE_HORIZONTAL==0)
+	{
+		LCD_WR_REG(0x2a);//列地址设置
+		LCD_WR_DATA(x1+52);
+		LCD_WR_DATA(x2+52);
+		LCD_WR_REG(0x2b);//行地址设置
+		LCD_WR_DATA(y1+40);
+		LCD_WR_DATA(y2+40);
+		LCD_WR_REG(0x2c);//储存器写
+	}
+	else if(USE_HORIZONTAL==1)
+	{
+		LCD_WR_REG(0x2a);//列地址设置
+		LCD_WR_DATA(x1+52);
+		LCD_WR_DATA(x2+52);
+		LCD_WR_REG(0x2b);//行地址设置
+		LCD_WR_DATA(y1+40);
+		LCD_WR_DATA(y2+40);
+		LCD_WR_REG(0x2c);//储存器写
+	}
+	else if(USE_HORIZONTAL==2)
+	{
+		LCD_WR_REG(0x2a);//列地址设置
+		LCD_WR_DATA(x1+40);
+		LCD_WR_DATA(x2+40);
+		LCD_WR_REG(0x2b);//行地址设置
+		LCD_WR_DATA(y1+53);
+		LCD_WR_DATA(y2+53);
+		LCD_WR_REG(0x2c);//储存器写
+	}
+	else
+	{
+		LCD_WR_REG(0x2a);//列地址设置
+		LCD_WR_DATA(x1+40);
+		LCD_WR_DATA(x2+40);
+		LCD_WR_REG(0x2b);//行地址设置
+		LCD_WR_DATA(y1+52);
+		LCD_WR_DATA(y2+52);
+		LCD_WR_REG(0x2c);//储存器写
+	}
+#endif
 }
 
 #if SPI0_CFG == 2
@@ -235,6 +309,7 @@ void Lcd_Init(void)
 	delay_1ms(20);
 	OLED_BLK_Set();
 
+#if defined(BOARD_SIPEED_LONGAN_NANO)
 	LCD_WR_REG(0x11);	// turn off sleep mode
 	delay_1ms(100);
 
@@ -327,11 +402,118 @@ void Lcd_Init(void)
 	LCD_WR_REG(0x3A);	// define the format of RGB picture data
 	LCD_WR_DATA8(0x05);	// 16-bit/pixel
 
+#elif defined(BOARD_LILYGO_T_DISPLAY_GD32)
+    LCD_WR_REG(ST7789_SLPOUT);   // Sleep out
+    delay_1ms(120);
+
+    LCD_WR_REG(ST7789_NORON);    // Normal display mode on
+
+    //------------------------------display and color format setting--------------------------------//
+	/* set later
+    LCD_WR_REG(ST7789_MADCTL);
+    //LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(TFT_MAD_RGB);
+	*/
+
+    // JLX240 display datasheet
+    LCD_WR_REG(0xB6);
+    LCD_WR_DATA8(0x0A);
+    LCD_WR_DATA8(0x82);
+
+    LCD_WR_REG(ST7789_COLMOD);
+    LCD_WR_DATA8(0x55);
+    delay_1ms(10);
+
+    //--------------------------------ST7789V Frame rate setting----------------------------------//
+    LCD_WR_REG(ST7789_PORCTRL);
+    LCD_WR_DATA8(0x0c);
+    LCD_WR_DATA8(0x0c);
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0x33);
+    LCD_WR_DATA8(0x33);
+
+    LCD_WR_REG(ST7789_GCTRL);      // Voltages: VGH / VGL
+    LCD_WR_DATA8(0x35);
+
+    //---------------------------------ST7789V Power setting--------------------------------------//
+    LCD_WR_REG(ST7789_VCOMS);
+    LCD_WR_DATA8(0x28);       // JLX240 display datasheet
+
+    LCD_WR_REG(ST7789_LCMCTRL);
+    LCD_WR_DATA8(0x0C);
+
+    LCD_WR_REG(ST7789_VDVVRHEN);
+    LCD_WR_DATA8(0x01);
+    LCD_WR_DATA8(0xFF);
+
+    LCD_WR_REG(ST7789_VRHS);       // voltage VRHS
+    LCD_WR_DATA8(0x10);
+
+    LCD_WR_REG(ST7789_VDVSET);
+    LCD_WR_DATA8(0x20);
+
+    LCD_WR_REG(ST7789_FRCTR2);
+    LCD_WR_DATA8(0x0f);
+
+    LCD_WR_REG(ST7789_PWCTRL1);
+    LCD_WR_DATA8(0xa4);
+    LCD_WR_DATA8(0xa1);
+
+    //--------------------------------ST7789V gamma setting---------------------------------------//
+    LCD_WR_REG(ST7789_PVGAMCTRL);
+    LCD_WR_DATA8(0xd0);
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0x02);
+    LCD_WR_DATA8(0x07);
+    LCD_WR_DATA8(0x0a);
+    LCD_WR_DATA8(0x28);
+    LCD_WR_DATA8(0x32);
+    LCD_WR_DATA8(0x44);
+    LCD_WR_DATA8(0x42);
+    LCD_WR_DATA8(0x06);
+    LCD_WR_DATA8(0x0e);
+    LCD_WR_DATA8(0x12);
+    LCD_WR_DATA8(0x14);
+    LCD_WR_DATA8(0x17);
+
+    LCD_WR_REG(ST7789_NVGAMCTRL);
+    LCD_WR_DATA8(0xd0);
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0x02);
+    LCD_WR_DATA8(0x07);
+    LCD_WR_DATA8(0x0a);
+    LCD_WR_DATA8(0x28);
+    LCD_WR_DATA8(0x31);
+    LCD_WR_DATA8(0x54);
+    LCD_WR_DATA8(0x47);
+    LCD_WR_DATA8(0x0e);
+    LCD_WR_DATA8(0x1c);
+    LCD_WR_DATA8(0x17);
+    LCD_WR_DATA8(0x1b);
+    LCD_WR_DATA8(0x1e);
+
+    LCD_WR_REG(ST7789_INVON);
+
+    LCD_WR_REG(ST7789_CASET);    // Column address set
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0xE5);    // 239
+
+    LCD_WR_REG(ST7789_RASET);    // Row address set
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0x00);
+    LCD_WR_DATA8(0x01);
+    LCD_WR_DATA8(0x3F);    // 319
+
+#endif
+
+	// Memory data access control (MADCTL)
 	LCD_WR_REG(0x36);
-	if(USE_HORIZONTAL==0)LCD_WR_DATA8(0x08);
-	else if(USE_HORIZONTAL==1)LCD_WR_DATA8(0xC8);
-	else if(USE_HORIZONTAL==2)LCD_WR_DATA8(0x78);
-	else LCD_WR_DATA8(0xA8);
+	if(USE_HORIZONTAL==0)LCD_WR_DATA8(0x00 | (RGB_ORDER<<3));
+	else if(USE_HORIZONTAL==1)LCD_WR_DATA8(0xC0 | (RGB_ORDER<<3));
+	else if(USE_HORIZONTAL==2)LCD_WR_DATA8(0x70 | (RGB_ORDER<<3));
+	else LCD_WR_DATA8(0xA0 | (RGB_ORDER<<3));
 
 	LCD_WR_REG(0x29);	// Display On
 }
@@ -345,13 +527,13 @@ void LCD_Clear(u16 Color)
 {
 	u16 i,j;  	
 	LCD_Address_Set(0,0,LCD_W-1,LCD_H-1);
-    for(i=0;i<LCD_W;i++)
-	  {
-			for (j=0;j<LCD_H;j++)
-				{
-					LCD_WR_DATA(Color);
-				}
-	  }
+	for(i=0;i<LCD_W;i++)
+	{
+		for (j=0;j<LCD_H;j++)
+		{
+			LCD_WR_DATA(Color);
+		}
+	}
 }
 
 #if 0

@@ -170,7 +170,7 @@ static int get_level(uint32_t val)
 {
     int i;
     for (i = 0; i < 101; i++) {
-        if (val < vol_table[i]) break;
+        if (val*2 < vol_table[i]) break;
     }
     return i;
 }
