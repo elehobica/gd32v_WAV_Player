@@ -38,7 +38,7 @@ void timer1_pwm_init(void)
     timer_channel_output_state_config(TIMER1, TIMER_CH_2, TIMER_CCX_ENABLE); // channel output enable
     timer_channel_output_mode_config(TIMER1, TIMER_CH_2, TIMER_OC_MODE_PWM0);
     // default PWM ratio = 50 / 100
-    timer_autoreload_value_config(TIMER1, 100);
+    timer_autoreload_value_config(TIMER1, 99);
     timer_channel_output_pulse_value_config(TIMER1, TIMER_CH_2, 50);
     timer_enable(TIMER1);
 
@@ -48,6 +48,7 @@ void timer1_pwm_init(void)
     gpio_init(GPIOB, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_10);
 }
 
+// on_term: 0 ~ 100 (%)
 void timer1_pwm_set_ratio(uint16_t on_term)
 {
     timer_channel_output_pulse_value_config(TIMER1, TIMER_CH_2, on_term);
@@ -66,7 +67,7 @@ void timer3_pwm_init(void)
     timer_channel_output_state_config(TIMER3, TIMER_CH_1, TIMER_CCX_ENABLE); // channel output enable
     timer_channel_output_mode_config(TIMER3, TIMER_CH_1, TIMER_OC_MODE_PWM0);
     // default PWM ratio = 50 / 100
-    timer_autoreload_value_config(TIMER3, 100);
+    timer_autoreload_value_config(TIMER3, 99);
     timer_channel_output_pulse_value_config(TIMER3, TIMER_CH_1, 50);
     timer_enable(TIMER3);
 
@@ -74,6 +75,7 @@ void timer3_pwm_init(void)
     gpio_init(GPIOB, GPIO_MODE_AF_PP, GPIO_OSPEED_50MHZ, GPIO_PIN_7);
 }
 
+// on_term: 0 ~ 100 (%)
 void timer3_pwm_set_ratio(uint16_t on_term)
 {
     timer_channel_output_pulse_value_config(TIMER3, TIMER_CH_1, on_term);
