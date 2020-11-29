@@ -863,8 +863,8 @@ int main(void)
         } else {
             if (mode == Play) {
                 if (!audio_is_playing_or_pausing()) {
+                    LCD_Clear(BLACK);
                     if (audio_play(0)) { // play next file -> prepare to change to next title info
-                        LCD_Clear(BLACK);
                         if (cover_exists) {
                             #if defined(BOARD_SIPEED_LONGAN_NANO)
                             LCD_ShowDimPicture(ca_x, ca_y, ca_x+79, ca_y+79, 48);
