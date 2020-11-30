@@ -4,7 +4,7 @@
 * Sipeed Longan Nano: 128KB Flash/32KB SRAM
 * Lilygo TTGO T-Display-GD32: 128KB Flash/32KB SRAM
 * ES9023 24bit Audio DAC
-* ExFAT MicroSD (up to 512GB)
+* exFAT MicroSD (up to 512GB)
 * 44.1KHz 16bit Stereo WAV File
 * Tag information by LIST chunk in WAV File
 * Cover Art display by RGB565 binary format file
@@ -25,23 +25,22 @@
 ## Board Configuration
 * Edit [board_conf.h](include/board_conf.h) to choose your board
 
-## Pin Assign
-| Longan Nano Pin | Attribute | Connection |
+## Pin Assignment
+In addition to original connection
+
+| Longan Nano Pin | Function | Connection |
 ----|----|----
-| PA0 | ADC0 | Android Head Phone MIC (Button) |
-| PA1 | GPIO | LED_G |
-| PA2 | GPIO | LED_B |
-| PA3 | ADC1 | Battery Voltage |
-| PA8 | CK_OUT0 | ES9023 MCLK (13) |
-| PA15 | I2S2_WS | ES9023 LRCK (2) |
-| PB3 | I2S2_CK | ES9023 BCK (1) |
-| PB5 | I2S2_SD | ES9023 SDI (3) |
-| PB6 | GPIO | ES9023 MUTE_B (15) |
-| PB7 | TIM3_CH1 | LCD Backlight Control (modify Longan Nano) |
-| PB8 | GPIO | Battery Check |
-| PB10 | TIM1_CH2 | LCD Backlight Control (Lilygo GD32) |
-| PC13 | GPIO | LED_R |
-| PC14 | GPIO | Power Keep |
+| PA0 | ADC0_CH0 | from Android Head Phone MIC (Button) |
+| PA3 | ADC1_CH3 | from Battery Voltage |
+| PA8 | CK_OUT0 | to ES9023 MCLK (13) |
+| PA15 | I2S2_WS | to ES9023 LRCK (2) |
+| PB3 | I2S2_CK | to ES9023 BCK (1) |
+| PB5 | I2S2_SD | to ES9023 SDI (3) |
+| PB6 | GPIO | to ES9023 MUTE_B (15) |
+| PB7 | TIM3_CH1 | to LCD Backlight PWM Control (modify Longan Nano) |
+| PB8 | GPIO | to Battery Check |
+| PB10 | TIM1_CH2 | to LCD Backlight PWM Control (Lilygo GD32) |
+| PC14 | GPIO | to Power Keep |
 
 ## Button Control Guide
 Connect MIC pin of Android headphone remote control with 3 buttons to PA0 pin of Longan Nano.
