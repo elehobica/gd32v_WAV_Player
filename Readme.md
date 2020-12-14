@@ -3,7 +3,8 @@
 ### Supported
 * Sipeed Longan Nano: 128KB Flash/32KB SRAM
 * Lilygo TTGO T-Display-GD32: 128KB Flash/32KB SRAM
-* ES9023 24bit Audio DAC
+* PCM5102 32bit I2S Audio DAC
+* ES9023 24bit I2S Audio DAC
 * exFAT MicroSD (up to 512GB)
 * 44.1KHz 16bit Stereo WAV File
 * Tag information by LIST chunk in WAV File
@@ -32,15 +33,20 @@ In addition to original connection
 ----|----|----
 | PA0 | ADC0_CH0 | from Android Head Phone MIC (Button) |
 | PA3 | ADC1_CH3 | from Battery Voltage |
-| PA8 | CK_OUT0 | to ES9023 MCLK (13) |
-| PA15 | I2S2_WS | to ES9023 LRCK (2) |
-| PB3 | I2S2_CK | to ES9023 BCK (1) |
-| PB5 | I2S2_SD | to ES9023 SDI (3) |
-| PB6 | GPIO | to ES9023 MUTE_B (15) |
+| PA8 | CK_OUT0 |  to ES9023 MCLK (13) |
+| PA15 | I2S2_WS | to PCM5102 LRCK (15) / to ES9023 LRCK (2) |
+| PB3 | I2S2_CK | to PCM5102 BCK (13) / to ES9023 BCK (1) |
+| PB5 | I2S2_SD | to PCM5102 DIN (14) / to ES9023 SDI (3) |
+| PB6 | GPIO | to PCM5102 XSMT (17) / to ES9023 MUTE_B (15) |
 | PB7 | TIM3_CH1 | to LCD Backlight PWM Control (modify Longan Nano) |
 | PB8 | GPIO | to Battery Check |
 | PB10 | TIM1_CH2 | to LCD Backlight PWM Control (Lilygo GD32) |
 | PC14 | GPIO | to Power Keep |
+
+tie PCM5102 SCK (12) to low 
+
+## PCM5102 Board
+![Setting of PM5102 Board](doc/PCM5102A_Board_setting.png)
 
 ## Button Control Guide
 Connect MIC pin of Android headphone remote control with 3 buttons to PA0 pin of Longan Nano.
@@ -82,9 +88,11 @@ Long push Center button
 
 ## Prototype Example
 ### Sipeed Longan Nano
-[Scene1](doc/gd32v_WAV_Player_bare.jpg)
+![Scene1](doc/gd32v_WAV_Player_bare.jpg)  
 [Scene2](doc/gd32v_WAV_Player_inside_case.jpg)
 [Scene3](doc/gd32v_WAV_Player_with_case.jpg)
 ### Lilygo TTGO T-Display-GD32
-[Scene4](doc/gd32v_WAV_Player_lilygo_gd32.jpg)
+![Scene4](doc/gd32v_WAV_Player_lilygo_gd32.jpg)  
 [Scene5](doc/gd32v_WAV_Player_lilygo_gd32_fileview.jpg)
+### with PCM5102
+![Scene6](doc/gd32v_WAV_Player_with_PCM5102.png)
