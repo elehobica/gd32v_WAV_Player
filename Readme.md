@@ -11,7 +11,7 @@
 * Cover Art display by RGB565 binary format file
 * Folder/File navigation by ASCII order
 * Control by Android Headphone button (3 buttons)
-* Volume by utilizing DAC 24bit range for playing 16bit Audio data
+* Volume by utilizing DAC 32bit/24bit range for playing 16bit Audio data
 * Album unit random play by time out after play finish (Assuming [Artist Folder]/[Album Folder] structure)
 * Resume playback
 * Battery voltage check (Optional: external circuit needed)
@@ -45,7 +45,7 @@ In addition to original connection
 
 tie PCM5102 SCK (12) to low 
 
-## PCM5102 Board
+## PCM5102 Board Setting
 ![Setting of PM5102 Board](doc/PCM5102A_Board_setting.png)
 
 ## Button Control Guide
