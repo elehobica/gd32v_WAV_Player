@@ -1,18 +1,18 @@
-/*------------------------------------------------------/
-/ ff_util: File sorting utility v0.90
-/-------------------------------------------------------/
+/*-----------------------------------------------------------/
+/ file_menu_FatFs: File Menu sorting utility for FatFs v0.90
+/------------------------------------------------------------/
 / Copyright (c) 2020, Elehobica
 / Released under the BSD-2-Clause
 / refer to https://opensource.org/licenses/BSD-2-Clause
-/------------------------------------------------------*/
+/-----------------------------------------------------------*/
 
-#include "ff_util/ff_util.h"
+#include "file_menu/file_menu_FatFs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-//#define DEBUG_FF_UTIL
-//#define DEBUG_FF_UTIL_LVL2
+//#define DEBUG_FILE_MENU
+//#define DEBUG_FILE_MENU_LVL2
 
 static DIR dir;
 static FILINFO fno, fno_temp;
@@ -165,23 +165,23 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 		while (!get_sorted(end_1_next) && end_1_next < end_1) {
 			end_1_next++;
 		}
-		#ifdef DEBUG_FF_UTIL
+		#ifdef DEBUG_FILE_MENU
 		printf("partial %d %d %d\n\r", start_next, end_1_next, end_1);
-		#endif // #ifdef DEBUG_FF_UTIL
+		#endif // #ifdef DEBUG_FILE_MENU
 		idx_qsort_entry_list_by_range(r_start, r_end_1, start_next, end_1_next);
 		if (end_1_next < end_1) {
 			idx_qsort_entry_list_by_range(r_start, r_end_1, end_1_next, end_1);
 		}
 		return;
 	}
-	#ifdef DEBUG_FF_UTIL_LVL2
+	#ifdef DEBUG_FILE_MENU_LVL2
 	printf("r_start %d r_end_1 %d start %d end_1 %d\n\r", r_start, r_end_1, start, end_1);
 	printf("\n\r");
 	for (int k = start; k < end_1; k++) {
 		idx_f_stat(entry_list[k], &fno);
 		printf("before[%d] %d %s\n\r", k, entry_list[k], fno.fname);
 	}
-	#endif // #ifdef DEBUG_FF_UTIL_LVL2
+	#endif // #ifdef DEBUG_FILE_MENU_LVL2
 	if (end_1 - start <= 1) {
 		set_sorted(start);
 	} else if (end_1 - start <= 2) {
@@ -213,9 +213,9 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 		int bottom = end_1 - 1;
 		uint16_t key_idx = entry_list[start+(end_1-start)/2];
 		idx_f_stat(key_idx, &fno_temp);
-		#ifdef DEBUG_FF_UTIL_LVL2
+		#ifdef DEBUG_FILE_MENU_LVL2
 		printf("key %s\n\r", fno_temp.fname);
-		#endif // #ifdef DEBUG_FF_UTIL_LVL2
+		#endif // #ifdef DEBUG_FILE_MENU_LVL2
 		while (1) {
 			// try fast_fname_list compare
 			result = get_is_file(entry_list[top]) - get_is_file(key_idx);
@@ -242,7 +242,7 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 			}
 			if (top > bottom) break;
 		}
-		#ifdef DEBUG_FF_UTIL_LVL2
+		#ifdef DEBUG_FILE_MENU_LVL2
 		for (int k = 0; k < top; k++) {
 			idx_f_stat(entry_list[k], &fno);
 			printf("top[%d] %d %s\n\r", k, entry_list[k], fno.fname);
@@ -251,7 +251,7 @@ static void idx_qsort_entry_list_by_range(uint16_t r_start, uint16_t r_end_1, ui
 			idx_f_stat(entry_list[k], &fno);
 			printf("bottom[%d] %d %s\n\r", k, entry_list[k], fno.fname);
 		}
-		#endif // #ifdef DEBUG_FF_UTIL_LVL2
+		#endif // #ifdef DEBUG_FILE_MENU_LVL2
 		if ((r_start < top && r_end_1 > start) && !get_range_full_sorted(start, top)) {
 			if (top - start > 1) {
 				idx_qsort_entry_list_by_range(r_start, r_end_1, start, top);
@@ -318,11 +318,11 @@ static void idx_sort_new(void)
 				fast_fname_list[i][k] = fno.fname[k];
 			}
 		}
-		#ifdef DEBUG_FF_UTIL_LVL2
+		#ifdef DEBUG_FILE_MENU_LVL2
 		char temp_str[5] = "    ";
 		strncpy(temp_str, fast_fname_list[i], 4);
 		printf("fast_fname_list[%d] = %4s, is_file = %d\r\n", i, temp_str, get_is_file(i));
-		#endif // #ifdef DEBUG_FF_UTIL_LVL2
+		#endif // #ifdef DEBUG_FILE_MENU_LVL2
 	}
 }
 
@@ -375,9 +375,9 @@ void file_menu_idle(void)
 		break;
 	}
 	
-	#ifdef DEBUG_FF_UTIL
+	#ifdef DEBUG_FILE_MENU
 	printf("implicit sort %d %d\n\r", r_start, r_end_1);
-	#endif // #ifdef DEBUG_FF_UTIL
+	#endif // #ifdef DEBUG_FILE_MENU
 	idx_qsort_entry_list_by_range(r_start, r_end_1, 0, max_entry_cnt);
 }
 

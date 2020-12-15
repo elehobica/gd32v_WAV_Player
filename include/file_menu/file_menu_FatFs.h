@@ -1,13 +1,13 @@
-/*------------------------------------------------------/
-/ ff_util: File sorting utility v0.90
-/-------------------------------------------------------/
+/*-----------------------------------------------------------/
+/ file_menu_FatFs: File Menu sorting utility for FatFs v0.90
+/------------------------------------------------------------/
 / Copyright (c) 2020, Elehobica
 / Released under the BSD-2-Clause
 / refer to https://opensource.org/licenses/BSD-2-Clause
-/------------------------------------------------------*/
+/-----------------------------------------------------------*/
 
-#ifndef _FF_UTIL_H_
-#define _FF_UTIL_H_
+#ifndef _FILE_MENU_FATFS_H_
+#define _FILE_MENU_FATFS_H_
 
 #include "fatfs/ff.h"
 
