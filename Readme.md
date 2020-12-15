@@ -3,15 +3,15 @@
 ### Supported
 * Sipeed Longan Nano: 128KB Flash/32KB SRAM
 * Lilygo TTGO T-Display-GD32: 128KB Flash/32KB SRAM
-* PCM5102 32bit I2S Audio DAC
 * ES9023 24bit I2S Audio DAC
+* PCM5102 32bit I2S Audio DAC
 * exFAT MicroSD (up to 512GB)
 * 44.1KHz 16bit Stereo WAV File
 * Tag information by LIST chunk in WAV File
 * Cover Art display by RGB565 binary format file
 * Folder/File navigation by ASCII order
 * Control by Android Headphone button (3 buttons)
-* Volume by utilizing DAC 32bit/24bit range for playing 16bit Audio data
+* Volume by utilizing DAC 24bit/32bit range for playing 16bit Audio data
 * Album unit random play by time out after play finish (Assuming [Artist Folder]/[Album Folder] structure)
 * Resume playback
 * Battery voltage check (Optional: external circuit needed)
@@ -34,10 +34,10 @@ In addition to original connection
 | PA0 | ADC0_CH0 | from Android Head Phone MIC (Button) |
 | PA3 | ADC1_CH3 | from Battery Voltage |
 | PA8 | CK_OUT0 |  to ES9023 MCLK (13) |
-| PA15 | I2S2_WS | to PCM5102 LRCK (15) / to ES9023 LRCK (2) |
-| PB3 | I2S2_CK | to PCM5102 BCK (13) / to ES9023 BCK (1) |
-| PB5 | I2S2_SD | to PCM5102 DIN (14) / to ES9023 SDI (3) |
-| PB6 | GPIO | to PCM5102 XSMT (17) / to ES9023 MUTE_B (15) |
+| PA15 | I2S2_WS | to ES9023 LRCK (2) / to PCM5102 LRCK (15) |
+| PB3 | I2S2_CK | to ES9023 BCK (1) / to PCM5102 BCK (13) | 
+| PB5 | I2S2_SD | to ES9023 SDI (3) / to PCM5102 DIN (14) |
+| PB6 | GPIO | to ES9023 MUTE_B (15) / to PCM5102 XSMT (17) | 
 | PB7 | TIM3_CH1 | to LCD Backlight PWM Control (modify Longan Nano) |
 | PB8 | GPIO | to Battery Check |
 | PB10 | TIM1_CH2 | to LCD Backlight PWM Control (Lilygo GD32) |
@@ -45,15 +45,17 @@ In addition to original connection
 
 tie PCM5102 SCK (12) to low 
 
-## PCM5102 Board Setting
+## I2S DAC
+Both ES9023 and PCM5102 are supported without selection.
+### PCM5102 Board Setting
 ![Setting of PM5102 Board](doc/PCM5102A_Board_setting.png)
 
 ## Button Control Guide
 Connect MIC pin of Android headphone remote control with 3 buttons to PA0 pin of Longan Nano.
-PA0 also needs to be pulled-up by 2.2Kohm from 3.3V.
+PA0 also needs to be pulled-up by 2.2Kohm from 3.3V. See schematic for detail.
 
 ### FileView Mode
-* Up/Down button to go up/down
+* Up/Down button to go up/down for file selection
 * Center 1 click to get into the folder
 * Center 1 click to play WAV file (go to Play Mode)
 * Center 2 click to go parent folder
@@ -65,7 +67,7 @@ PA0 also needs to be pulled-up by 2.2Kohm from 3.3V.
 * Center 2 click to stop (go back to FileView Mode)
 
 ### Power On/Off (Optional: external circuit needed)
-Long push Center button
+* Long push Center button
 
 ## Schematic
 [Sipeed_Longhan_Nano_WAV_Player_schematic.pdf](doc/Sipeed_Longhan_Nano_WAV_Player_schematic.pdf)
@@ -87,12 +89,12 @@ Long push Center button
 * [lilygo_logo.bin example](resource/lilygo_logo.bin)
 
 ## Prototype Example
-### Sipeed Longan Nano
+### Portable WAV Player (Sipeed Longan Nano with ES9023)
 ![Scene1](doc/gd32v_WAV_Player_bare.jpg)  
 [Scene2](doc/gd32v_WAV_Player_inside_case.jpg)
 [Scene3](doc/gd32v_WAV_Player_with_case.jpg)
+### Sipeed Longan Nano with PCM5102
+![Scene4](doc/gd32v_WAV_Player_with_PCM5102.png)
 ### Lilygo TTGO T-Display-GD32
-![Scene4](doc/gd32v_WAV_Player_lilygo_gd32.jpg)  
-[Scene5](doc/gd32v_WAV_Player_lilygo_gd32_fileview.jpg)
-### with PCM5102
-![Scene6](doc/gd32v_WAV_Player_with_PCM5102.png)
+![Scene5](doc/gd32v_WAV_Player_lilygo_gd32.jpg)  
+[Scene6](doc/gd32v_WAV_Player_lilygo_gd32_fileview.jpg)
