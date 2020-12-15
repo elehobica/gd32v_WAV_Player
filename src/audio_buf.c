@@ -1,7 +1,13 @@
+/*------------------------------------------------------/
+/ Copyright (c) 2020, Elehobica
+/ Released under the BSD-2-Clause
+/ refer to https://opensource.org/licenses/BSD-2-Clause
+/------------------------------------------------------*/
+
 #include <string.h>
 #include <stdlib.h>
 #include "fatfs/tf_card.h"
-#include "fatfs/ff_util.h"
+#include "ff_util/ff_util.h"
 #include "i2s_util.h"
 #include "audio_buf.h"
 

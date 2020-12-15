@@ -1,3 +1,9 @@
+/*------------------------------------------------------/
+/ Copyright (c) 2020, Elehobica
+/ Released under the BSD-2-Clause
+/ refer to https://opensource.org/licenses/BSD-2-Clause
+/------------------------------------------------------*/
+
 #ifndef _AUDIO_BUF_H_
 #define _AUDIO_BUF_H_
 

@@ -1,7 +1,15 @@
+/*------------------------------------------------------/
+/ ff_util: File sorting utility v0.90
+/-------------------------------------------------------/
+/ Copyright (c) 2020, Elehobica
+/ Released under the BSD-2-Clause
+/ refer to https://opensource.org/licenses/BSD-2-Clause
+/------------------------------------------------------*/
+
 #ifndef _FF_UTIL_H_
 #define _FF_UTIL_H_
 
-#include "ff.h"
+#include "fatfs/ff.h"
 
 #define TGT_DIRS    (1<<0)
 #define TGT_FILES   (1<<1)

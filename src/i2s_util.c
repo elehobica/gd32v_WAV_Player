@@ -1,3 +1,9 @@
+/*------------------------------------------------------/
+/ Copyright (c) 2020, Elehobica
+/ Released under the BSD-2-Clause
+/ refer to https://opensource.org/licenses/BSD-2-Clause
+/------------------------------------------------------*/
+
 #include "i2s_util.h"
 #include "gd32vf103_dma.h"
 

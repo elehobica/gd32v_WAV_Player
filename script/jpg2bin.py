@@ -1,3 +1,9 @@
+#-------------------------------------------------------
+# Copyright (c) 2020, Elehobica
+# Released under the BSD-2-Clause
+# refer to https://opensource.org/licenses/BSD-2-Clause
+#-------------------------------------------------------
+
 import sys
 import struct
 from PIL import Image

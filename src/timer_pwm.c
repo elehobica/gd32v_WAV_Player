@@ -1,3 +1,9 @@
+/*------------------------------------------------------/
+/ Copyright (c) 2020, Elehobica
+/ Released under the BSD-2-Clause
+/ refer to https://opensource.org/licenses/BSD-2-Clause
+/------------------------------------------------------*/
+
 #include "gd32vf103_timer.h"
 #include "gd32vf103_gpio.h"
 #include "timer_pwm.h"

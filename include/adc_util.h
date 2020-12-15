@@ -1,3 +1,9 @@
+/*------------------------------------------------------/
+/ Copyright (c) 2020, Elehobica
+/ Released under the BSD-2-Clause
+/ refer to https://opensource.org/licenses/BSD-2-Clause
+/------------------------------------------------------*/
+
 #ifndef _ADC_UTIL_H_
 #define _ADC_UTIL_H_
 

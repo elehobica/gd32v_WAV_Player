@@ -1,4 +1,9 @@
 #!ruby
+#-------------------------------------------------------
+# Copyright (c) 2020, Elehobica
+# Released under the BSD-2-Clause
+# refer to https://opensource.org/licenses/BSD-2-Clause
+#-------------------------------------------------------
 
 require 'time'
 Vinyl_thres_time = Time.parse("2018/03/08 00:00:00")

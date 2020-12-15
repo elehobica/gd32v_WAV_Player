@@ -1,4 +1,12 @@
-#include "./fatfs/ff_util.h"
+/*------------------------------------------------------/
+/ ff_util: File sorting utility v0.90
+/-------------------------------------------------------/
+/ Copyright (c) 2020, Elehobica
+/ Released under the BSD-2-Clause
+/ refer to https://opensource.org/licenses/BSD-2-Clause
+/------------------------------------------------------*/
+
+#include "ff_util/ff_util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
