@@ -13,6 +13,7 @@
 
 #define SIZE_OF_SAMPLES (1024)  // samples for 2ch total
 #define SAMPLE_RATE     (44100)
+#define DAC_ZERO_VALUE  (1)     // Non-zero value For prevending pop-noise when PCM5102A enters/exits Zero Data Detect
 
 // Audio Double Buffer from DMA transfer
 int32_t audio_buf[2][SIZE_OF_SAMPLES];
@@ -249,8 +250,8 @@ void audio_init(void)
     pausing = 0;
 
     for (int i = 0; i < SIZE_OF_SAMPLES; i++) {
-        audio_buf[0][i] = 0;
-        audio_buf[1][i] = 0;
+        audio_buf[0][i] = DAC_ZERO_VALUE;
+        audio_buf[1][i] = DAC_ZERO_VALUE;
     }
     dma_trans_number = SIZE_OF_SAMPLES*2;
 
@@ -325,7 +326,7 @@ void DMA1_Channel1_IRQHandler(void)
         LEDB(1);
     } else {
         for (int i = 0; i < SIZE_OF_SAMPLES; i++) {
-            audio_buf[nxt2][i] = 0;
+            audio_buf[nxt2][i] = DAC_ZERO_VALUE;
         }
         dma_trans_number = SIZE_OF_SAMPLES*2;
     }

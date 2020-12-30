@@ -99,7 +99,7 @@ const uint16_t vl_y = LCD_H-16;
 #define CFG_SEED            (FLASH_PAGE127 + 0x3b0)
 #define CFG32(x)            REG32(x)
 
-int version;
+const int Version = 10001;
 //unsigned char image[160*80*2/2];
 unsigned char *image[8] = {}; // 80*10*2
 uint32_t count10ms = 0;
@@ -257,7 +257,7 @@ void power_off(char *msg, int is_error)
         }
         free(data);
         // flash config
-        fmc_word_program(CFG_VERSION, version);
+        fmc_word_program(CFG_VERSION, Version);
         fmc_word_program(CFG_VOLUME, volume_get());
         fmc_word_program(CFG_STACK_COUNT, stack_get_count(stack));
         for (i = 0; i < CFG32(CFG_STACK_COUNT); i++) {
@@ -555,8 +555,8 @@ int main(void)
     adc1_get_bat_x100(); // Battery check idle run
 
     // Flash config load
-    version = CFG32(CFG_VERSION);
-    if (version == 0xffffffff) { // if no history written
+    int cfg_version = CFG32(CFG_VERSION);
+    if (cfg_version == 0xffffffff) { // if no history written
         printf("Initialize flash config\n\r");
         unsigned int *data = (unsigned int *) malloc(FLASH_PAGE_SIZE - CFG_SIZE);
         for (i = 0; i < FLASH_PAGE_SIZE - CFG_SIZE; i += 4) {
@@ -569,7 +569,7 @@ int main(void)
         }
         free(data);
         // flash config initial values
-        fmc_word_program(CFG_VERSION, 100);
+        fmc_word_program(CFG_VERSION, Version);
         fmc_word_program(CFG_VOLUME, 65);
         fmc_word_program(CFG_STACK_COUNT, 0);
         fmc_word_program(CFG_STACK_DATA0, 0);
@@ -613,7 +613,7 @@ int main(void)
         power_off("No Card Found!", 1);
     }
 
-    printf("Longan Player ver %d.%02d\n\r", (int) CFG32(CFG_VERSION)/100, (int) CFG32(CFG_VERSION)%100);
+    printf("Longan Player ver %d.%d.%d\n\r", (Version/10000)%100, (Version/100)%100, (Version/1)%100);
     printf("SD Card File System = %d\n\r", fs.fs_type); // FS_EXFAT = 4
 
     // Opening Logo
