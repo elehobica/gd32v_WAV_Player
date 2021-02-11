@@ -13,12 +13,13 @@
 
 #define SIZE_OF_SAMPLES (1024)  // samples for 2ch total
 #define SAMPLE_RATE     (44100)
-#define DAC_ZERO_VALUE  (1)     // Non-zero value For prevending pop-noise when PCM5102A enters/exits Zero Data Detect
 
 // Audio Double Buffer from DMA transfer
 int32_t audio_buf[2][SIZE_OF_SAMPLES];
 // Audio Buffer for File Read
 int16_t buf_16b[SIZE_OF_SAMPLES];
+
+int32_t  DAC_ZERO_VALUE = 1;    // Non-zero value For prevending pop-noise when PCM5102A enters/exits Zero Data Detect
 
 volatile static int count = 0;
 
@@ -222,8 +223,8 @@ static int get_audio_buf(FIL *tec, int32_t *buf_32b, int32_t *trans_number)
         }
     }
     for (i = 0; i < number/4; i++) {
-        buf_32b[i*2+0] = (int32_t) swap16b((int32_t) buf_16b[i*2+0] * vol_table[volume]); // L
-        buf_32b[i*2+1] = (int32_t) swap16b((int32_t) buf_16b[i*2+1] * vol_table[volume]); // R
+        buf_32b[i*2+0] = (int32_t) swap16b((int32_t) buf_16b[i*2+0] * vol_table[volume]) + DAC_ZERO_VALUE; // L
+        buf_32b[i*2+1] = (int32_t) swap16b((int32_t) buf_16b[i*2+1] * vol_table[volume]) + DAC_ZERO_VALUE; // R
         lvl_l += ((int32_t) buf_16b[i*2+0] * buf_16b[i*2+0]) / 32768;
         lvl_r += ((int32_t) buf_16b[i*2+1] * buf_16b[i*2+1]) / 32768;
     }
