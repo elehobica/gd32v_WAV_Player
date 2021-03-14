@@ -99,7 +99,7 @@ const uint16_t vl_y = LCD_H-16;
 #define CFG_SEED            (FLASH_PAGE127 + 0x3b0)
 #define CFG32(x)            REG32(x)
 
-const int Version = 10001;
+const int Version = 10002;
 //unsigned char image[160*80*2/2];
 unsigned char *image[8] = {}; // 80*10*2
 uint32_t count10ms = 0;

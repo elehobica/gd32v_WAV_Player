@@ -632,7 +632,7 @@ void LCD_DrawLine(u16 x1,u16 y1,u16 x2,u16 y2,u16 color)
 	else {incx=-1;delta_x=-delta_x;}
 	if(delta_y>0)incy=1;
 	else if (delta_y==0)incy=0;//水平线 
-	else {incy=-1;delta_y=-delta_x;}
+	else {incy=-1;delta_y=-delta_y;}
 	if(delta_x>delta_y)distance=delta_x; //选取基本增量坐标轴 
 	else distance=delta_y;
 	for(t=0;t<distance+1;t++)
