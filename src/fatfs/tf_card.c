@@ -107,12 +107,11 @@ void rcvr_spi_multi (
 	UINT btr		/* Number of bytes to receive (even number) */
 )
 {
-	do
+	while (btr--)
 	{
 		*buff = xchg_spi(0xff);
 		buff++;
-	} while (btr--);
-
+	}
 }
 
 
